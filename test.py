@@ -99,6 +99,18 @@ def random_rt60(room_dim):
     a = v*sc*np.log(10)/(c*s)
     return random.uniform(a, 1.0)
 
+def random_diffuse_noise_position(room_dim, num_sources=12):
+    rdx, rdy, rdz = room_dim
+    return [np.array([random.uniform(0, rdx), random.uniform(0, rdy), random.uniform(0, rdz)]) for _ in range(num_sources)]
+
+def load_audio_file(file_path):
+    signal, sr = torchaudio.load(file_path, channels_first=True)
+    if signal.dim() > 1:
+        signal = signal[0]
+    if sr != SR:
+        signal = torchaudio.transforms.Resample(sr, 16000)(signal)
+    return signal.numpy()
+
 
 if __name__ == '__main__':
 
@@ -112,7 +124,11 @@ if __name__ == '__main__':
     ears_pos = random_ears_position(head_pos, head_ang)
     mics_pos = define_mics_position(ears_pos)
     mouth_pos = random_mouth_position(head_pos,  head_ang)
-    distractor_pos = random_distractor_position(room_dim, head_pos)
+    distr_pos = random_distractor_position(room_dim, head_pos)
+    noise_pos = random_diffuse_noise_position(room_dim, num_sources=32)
+
+    distr_snr = random_snr(-5, 5)
+    noise_snr = random_snr(-8, 8)
 
     # Create shoebox room.
     if is_anechoic:
@@ -122,9 +138,35 @@ if __name__ == '__main__':
         e_absorption, max_order = pra.inverse_sabine(rt60, room_dim)
     room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
 
-    # room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
-    # room.add_microphone_array(mics_pos.T)
-    # room.add_source(distractor_pos, signal=signal_noise, delay=0.0)
+    # Load audio files.
+    file_path_clean = r"database\VCTK\wav48_silence_trimmed\p225\p225_002_mic1.flac"
+    signal_clean = load_audio_file(file_path_clean)
+    file_path_distr = r"database\VCTK\wav48_silence_trimmed\p304\p304_001_mic1.flac"
+    signal_distr = load_audio_file(file_path_distr)
+    file_path_noise = r"database\WHAM\tr\01aa010b_0.97482_209a010p_-0.97482.wav"    
+    signal_noise = load_audio_file(file_path_noise)
 
-    # room.simulate()
-    # signal_mixed = room.mic_array.signals
+    # Normalize signals.
+    signal_clean = pra.normalize(signal_clean)
+    signal_distr = pra.normalize(signal_distr)
+    signal_noise = pra.normalize(signal_noise)
+
+    # Apply desired SNR.
+    signal_distr = signal_distr * np.power(10, -distr_snr/20)
+    signal_noise = signal_noise * np.power(10, -noise_snr/20)
+
+    # Add sources to acoustic scene.
+    room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+    room.add_source(distr_pos, signal=signal_distr, delay=0.0)
+    for pos in noise_pos:
+        room.add_source(pos, signal=signal_noise, delay=0.0)
+    
+    # Simulate acoustic scene.
+    room.add_microphone_array(mics_pos.T)
+    room.simulate()
+    signal_mixed = room.mic_array.signals
+    signal_mixed = pra.normalize(signal_mixed)
+
+    # Save audio files.
+    signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
+    torchaudio.save("out/mixed.wav", signal_mixed, SR)
