@@ -108,7 +108,7 @@ def load_audio_file(file_path):
     if signal.dim() > 1:
         signal = signal[0]
     if sr != SR:
-        signal = torchaudio.transforms.Resample(sr, 16000)(signal)
+        signal = torchaudio.transforms.Resample(sr, SR)(signal)
     return signal.numpy()
 
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     mics_pos = define_mics_position(ears_pos)
     mouth_pos = random_mouth_position(head_pos,  head_ang)
     distr_pos = random_distractor_position(room_dim, head_pos)
-    noise_pos = random_diffuse_noise_position(room_dim, num_sources=32)
+    noise_pos = random_diffuse_noise_position(room_dim, num_sources=16)
 
     distr_snr = random_snr(-5, 5)
     noise_snr = random_snr(-8, 8)
@@ -139,9 +139,9 @@ if __name__ == '__main__':
     room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
 
     # Load audio files.
-    file_path_clean = r"database\VCTK\wav48_silence_trimmed\p225\p225_002_mic1.flac"
+    file_path_clean = r"database\VCTK\wav48_silence_trimmed\p225\p225_004_mic1.flac"
     signal_clean = load_audio_file(file_path_clean)
-    file_path_distr = r"database\VCTK\wav48_silence_trimmed\p304\p304_001_mic1.flac"
+    file_path_distr = r"database\VCTK\wav48_silence_trimmed\p304\p304_004_mic1.flac"
     signal_distr = load_audio_file(file_path_distr)
     file_path_noise = r"database\WHAM\tr\01aa010b_0.97482_209a010p_-0.97482.wav"    
     signal_noise = load_audio_file(file_path_noise)
@@ -169,4 +169,9 @@ if __name__ == '__main__':
 
     # Save audio files.
     signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
-    torchaudio.save("out/mixed.wav", signal_mixed, SR)
+    torchaudio.save(f"out/mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav", signal_mixed, SR)
+
+    # TODO: Create acoustic scene without distractor, without noise, without echo.
+    # IDEA: Use VCTK mic1 with echo, use VTCK mic2 without echo... no strong reason, but it allows to use the full VTCK DB, adding a tiny bit more diversity.
+    # TODO: Create metadata file with various parameters: room size, positioning, etc.
+    # TODO: Add to metadata the speaker and utterance numbers from VCTK, LibriSpeech and WHAM. 
