@@ -276,11 +276,11 @@ if __name__ == '__main__':
 
     is_anechoic = False
     # Define audio file paths.
-    file_path_clean = r"database\VCTK\wav48_silence_trimmed\p225\p225_004_mic1.flac"
-    file_path_distr = r"database\VCTK\wav48_silence_trimmed\p304\p304_003_mic1.flac"
-    file_path_noise = r"database\WHAM\tr\01aa010b_0.97482_209a010p_-0.97482.wav" 
+    file_path_clean = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p225", "p225_004_mic1.flac")
+    file_path_distr = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p304", "p304_003_mic1.flac")
+    file_path_noise =os.path.join("database", "WHAM", "tr", "01aa010b_0.97482_209a010p_-0.97482.wav")
     # Define out path.
-    fldr_path_mixed = r"out\test"
+    fldr_path_mixed = os.path.join("out", "test")
     os.makedirs(fldr_path_mixed, exist_ok=True)
     # Create mixture.
     create_mixture_audio_sample(file_path_clean, file_path_distr, file_path_noise, room_is_anechoic=is_anechoic, path_to_output_folder=fldr_path_mixed) 
