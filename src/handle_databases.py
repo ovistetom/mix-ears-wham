@@ -28,6 +28,7 @@ def split_vctk(vctk_root):
             src_path = os.path.join(vctk_root, speaker)
             shutil.move(src_path, dst_path)
 
+
 def parse_vctk(vctk_root, subset='trn'):
     """Parse database and return shuffled lists (one for 'mic1', one for 'mic2') of all files in the given subset."""
     vctk_path = os.path.join(vctk_root, subset)
@@ -56,6 +57,7 @@ def parse_vctk(vctk_root, subset='trn'):
     random.shuffle(mic2_list)
     return mic1_list, mic2_list
 
+
 def parse_wham(wham_root, subset='tr'):
     """Parse database and return shuffled list of all files in the given subset."""
     wham_path = os.path.join(wham_root, subset)
@@ -70,7 +72,28 @@ def parse_wham(wham_root, subset='tr'):
     return file_list
 
 
+def parse_lisp(lisp_root, subset='train-clean-100'):
+    """Parse database and return shuffled list of all files in the given subset."""
+    lisp_path = os.path.join(lisp_root, subset)
+    file_list = []
+
+    for speaker_name in os.listdir(lisp_path):
+        speaker_path = os.path.join(lisp_path, speaker_name)
+        for book_name in os.listdir(speaker_path):
+            book_path = os.path.join(speaker_path, book_name)
+            for file_name in os.listdir(book_path):
+                file_path = os.path.join(book_path, file_name)
+                file_ext = os.path.splitext(file_path)[1]
+                if file_ext == '.flac':
+                    file_list.append(file_path)
+            
+    print(f"Found {len(file_list)} files in '{lisp_path}'.")
+    random.shuffle(file_list)
+    return file_list
+
 
 if __name__ == '__main__':
 
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK_092/wav48_silence_trimmed"
+    wham_root = r"/home/ovistetom/Documents/Databases_Local/LIBRIMIX/wham_noise"
+    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LIBRIMIX/LibriSpeech"
