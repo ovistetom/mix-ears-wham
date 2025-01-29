@@ -160,12 +160,10 @@ def generate_acoustic_mixture(room_parameters,
         # Save audio files.
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.wav")
-        torchaudio.save(path_to_mixture_sample, signal_mixed, SR) 
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
         # Create room and add necessary sources.
-        room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         for pos in noise_pos:
             room.add_source(pos, signal=signal_noise, delay=0.0)
@@ -179,12 +177,10 @@ def generate_acoustic_mixture(room_parameters,
         # Save audio files.
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
-        torchaudio.save(path_to_mixture_sample, signal_mixed, SR) 
 
     # CASE #3: with distractor, with ambient noise.
     else:
         # Create room and add necessary sources.
-        room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         room.add_source(distr_pos, signal=signal_distr, delay=0.0)
         for pos in noise_pos:
@@ -199,7 +195,8 @@ def generate_acoustic_mixture(room_parameters,
         # Save audio files.
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
-        torchaudio.save(path_to_mixture_sample, signal_mixed, SR)
+    
+    torchaudio.save(path_to_mixture_sample, signal_mixed, SR)
 
 
 def create_mixture_audio_sample(path_to_speaker_sample, 
