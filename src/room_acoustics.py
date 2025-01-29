@@ -26,6 +26,7 @@ def random_room_dimensions():
     z = random.uniform(2.5, 5)
     return np.array([x, y, z])
 
+
 def random_head_position(room_dim, rdtw=0.125):
     rdx, rdy, _ = room_dim
     x = random.uniform(rdtw*rdx, (1-rdtw)*rdx)
@@ -33,8 +34,10 @@ def random_head_position(room_dim, rdtw=0.125):
     z = random.uniform(1, 1.75)
     return np.array([x, y, z])
 
+
 def random_head_angle():
     return random.uniform(0, 2*np.pi)
+
 
 def random_mouth_position(head_pos, head_ang):
     hpx, hpy, hpz = head_pos
@@ -46,12 +49,14 @@ def random_mouth_position(head_pos, head_ang):
     z = hpz + rdz
     return np.array([x, y, z])
 
+
 def random_ears_position(head_pos, head_ang):
     hpx, hpy, hpz = head_pos
     rdx = random.uniform(0.08, 0.09)
     ear_center_l = np.array([hpx - rdx*np.cos(head_ang), hpy - rdx*np.sin(head_ang), hpz])
     ear_center_r = np.array([hpx + rdx*np.cos(head_ang), hpy + rdx*np.sin(head_ang), hpz])
     return np.array([ear_center_l, ear_center_r])
+
 
 def define_mics_position(ears_pos):
     ear_center_l, ear_center_r = ears_pos
@@ -62,6 +67,7 @@ def define_mics_position(ears_pos):
     mic_r_1 = np.array([rex, rey, rez - 0.01])
     mic_r_2 = np.array([rex, rey, rez + 0.01])
     return np.array([mic_l_1, mic_l_2, mic_r_1, mic_r_2])
+
 
 def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     rdx, rdy, _ = room_dim
@@ -101,8 +107,10 @@ def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     z = random.uniform(1, 1.75)
     return np.array([x, y, z])
 
+
 def random_snr(a=-5, b=5):
     return random.uniform(a, b)
+
 
 def random_rt60(room_dim):
     v = np.prod(room_dim)
@@ -111,6 +119,7 @@ def random_rt60(room_dim):
     sc = 24
     a = v*sc*np.log(10)/(c*s)
     return random.uniform(a, 1.0)
+
 
 def random_diffuse_noise_position(room_dim, num_sources=12):
     rdx, rdy, rdz = room_dim
@@ -278,5 +287,4 @@ if __name__ == '__main__':
     os.makedirs(fldr_path_mixed, exist_ok=True)
     # Create mixture.
     create_mixture_audio_sample(file_path_clean, file_path_distr, file_path_noise, room_is_anechoic=is_anechoic, path_to_output_folder=fldr_path_mixed) 
-    # create_mixture_audio_sample(file_path_clean, file_path_distr, file_path_noise, room_is_anechoic=True, path_to_output_folder=fldr_path_mixed) 
 
