@@ -253,7 +253,7 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     signal_distr = signal_distr * np.power(10, -distr_snr/20)
     signal_noise = signal_noise * np.power(10, -noise_snr/20)
 
-    # Generate mixture.
+    # Generate three mixtures.
     generate_acoustic_mixture(room_params, signal_clean, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, root_dir=path_to_output_folder)
     generate_acoustic_mixture(room_params, signal_clean, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, root_dir=path_to_output_folder)
     generate_acoustic_mixture(room_params, signal_clean, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, root_dir=path_to_output_folder)
