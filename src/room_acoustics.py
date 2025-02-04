@@ -1,5 +1,6 @@
 import numpy as np
 import pyroomacoustics as pra
+import anf_generator as anf
 import random
 import itertools 
 import torch
@@ -9,6 +10,7 @@ import os
 
 
 SR = 16000
+NFFT = 1024
 
 
 def load_audio_file(file_path):
@@ -126,6 +128,20 @@ def random_diffuse_noise_position(room_dim, num_sources=12):
     return [np.array([random.uniform(0, rdx), random.uniform(0, rdy), random.uniform(0, rdz)]) for _ in range(num_sources)]
 
 
+def add_noise(signal_mixed, signal_noise, mics_pos):
+
+    # Define target spatial coherence.
+    params = anf.CoherenceMatrix.Parameters(mic_positions=mics_pos, sc_type='spherical', sample_frequency=SR, nfft=NFFT)
+    # Generate output noise signals with the desired spatial coherence.
+    signal_noise, _, _ = anf.generate_signals(signal_noise, params, decomposition='evd', processing='balance+smooth')
+    # Determine the maximum size along the second dimension.
+    max_size = max(signal_mixed.shape[1], signal_noise.shape[1])
+    # Pad both arrays to the maximum size.
+    signal_mixed_padded = np.pad(signal_mixed, ((0, 0), (0, max_size - signal_mixed.shape[1])), mode='constant')
+    signal_noise_padded = np.pad(signal_noise, ((0, 0), (0, max_size - signal_noise.shape[1])), mode='constant')
+
+    return signal_mixed_padded + signal_noise_padded
+
 def generate_acoustic_mixture(room_parameters, 
                               signal_clean, 
                               signal_distr, 
@@ -139,7 +155,6 @@ def generate_acoustic_mixture(room_parameters,
     room_dim = room_parameters['room_dim']
     mouth_pos = room_parameters['mouth_pos']
     distr_pos = room_parameters['distr_pos']
-    noise_pos = room_parameters['noise_pos']
     mics_pos = room_parameters['mics_pos']
     e_absorption = room_parameters['e_absorption']
     max_order = room_parameters['max_order']
@@ -155,9 +170,9 @@ def generate_acoustic_mixture(room_parameters,
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_mixed = room.mic_array.signals
-        signal_mixed = pra.normalize(signal_mixed)
 
         # Save audio files.
+        signal_mixed = pra.normalize(signal_mixed)
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.wav")
 
@@ -165,16 +180,17 @@ def generate_acoustic_mixture(room_parameters,
     elif signal_distr is None:
         # Create room and add necessary sources.
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
-        for pos in noise_pos:
-            room.add_source(pos, signal=signal_noise, delay=0.0)
 
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_mixed = room.mic_array.signals
-        signal_mixed = pra.normalize(signal_mixed)
+
+        # Add spatially coherent noise.
+        signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)
 
         # Save audio files.
+        signal_mixed = pra.normalize(signal_mixed)
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
 
@@ -183,16 +199,17 @@ def generate_acoustic_mixture(room_parameters,
         # Create room and add necessary sources.
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         room.add_source(distr_pos, signal=signal_distr, delay=0.0)
-        for pos in noise_pos:
-            room.add_source(pos, signal=signal_noise, delay=0.0)
 
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_mixed = room.mic_array.signals
-        signal_mixed = pra.normalize(signal_mixed)
+
+        # Add spatially coherent noise.
+        signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)        
 
         # Save audio files.
+        signal_mixed = pra.normalize(signal_mixed)
         signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
         path_to_mixture_sample = os.path.join(root_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
     
@@ -214,7 +231,7 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     mics_pos = define_mics_position(ears_pos)
     mouth_pos = random_mouth_position(head_pos,  head_ang)
     distr_pos = random_distractor_position(room_dim, head_pos)
-    noise_pos = random_diffuse_noise_position(room_dim, num_sources=16)    
+    # noise_pos = random_diffuse_noise_position(room_dim, num_sources=16)    
 
     distr_snr = random_snr(-5, 5)
     noise_snr = random_snr(-8, 8)
@@ -234,7 +251,7 @@ def create_mixture_audio_sample(path_to_speaker_sample,
         'mics_pos': mics_pos,
         'mouth_pos': mouth_pos,
         'distr_pos': distr_pos,
-        'noise_pos': noise_pos,
+        # 'noise_pos': noise_pos,
         'e_absorption': e_absorption,
         'max_order': max_order,
         }
@@ -276,10 +293,10 @@ if __name__ == '__main__':
 
     is_anechoic = False
     # Define audio file paths.
-    file_path_clean = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p225", "p225_004_mic1.flac")
+    file_path_clean = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p265", "p265_003_mic1.flac")
     file_path_distr = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p304", "p304_003_mic1.flac")
-    file_path_noise =os.path.join("database", "WHAM", "tr", "01aa010b_0.97482_209a010p_-0.97482.wav")
-    # Define out path.
+    file_path_noise = os.path.join("database", "WHAM", "tr", "01aa010b_0.97482_209a010p_-0.97482.wav")
+    # Define output path.
     fldr_path_mixed = os.path.join("out", "test")
     os.makedirs(fldr_path_mixed, exist_ok=True)
     # Create mixture.
