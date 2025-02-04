@@ -231,7 +231,6 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     mics_pos = define_mics_position(ears_pos)
     mouth_pos = random_mouth_position(head_pos,  head_ang)
     distr_pos = random_distractor_position(room_dim, head_pos)
-    # noise_pos = random_diffuse_noise_position(room_dim, num_sources=16)    
 
     distr_snr = random_snr(-5, 5)
     noise_snr = random_snr(-8, 8)
@@ -251,7 +250,6 @@ def create_mixture_audio_sample(path_to_speaker_sample,
         'mics_pos': mics_pos,
         'mouth_pos': mouth_pos,
         'distr_pos': distr_pos,
-        # 'noise_pos': noise_pos,
         'e_absorption': e_absorption,
         'max_order': max_order,
         }

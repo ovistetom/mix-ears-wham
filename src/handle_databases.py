@@ -4,7 +4,9 @@ import shutil
 import torch
 import torchaudio
 import torchaudio.transforms as tt
+import torch.nn.functional as ff
 
+SR = 16000
 
 def split_vctk(vctk_root):
     """Split VCTK databases into training, validation and test subsets."""
@@ -31,7 +33,6 @@ def split_vctk(vctk_root):
             src_path = os.path.join(vctk_root, speaker)
             shutil.move(src_path, dst_path)
 
-
 def split_lisp(lisp_root):
     """Split LibriSpeech 'train-clean-100' subset into 'test-clean' and 'dev-clean'."""
     # Generate then shuffle the list of all VCTK speakers.
@@ -55,7 +56,7 @@ def split_lisp(lisp_root):
             src_path = os.path.join(train_root, speaker)
             shutil.move(src_path, dst_path)
 
-def split_demand(demand_root):
+def split_dmnd(demand_root):
     """Split the DEMAND database into training, validation and test subsets."""
     # Generate then shuffle the list of all noise types.
     list_environments = [d for d in os.listdir(demand_root) if d.endswith('16k')]
@@ -72,7 +73,6 @@ def split_demand(demand_root):
     tst_subset = list_environments[trn_size:trn_size+tst_size]
     val_subset = list_environments[-val_size:]    
 
-
     # Move environment directories to corresponding subset directory.
     for subset, subset_name  in [(trn_subset, 'trn'), (tst_subset, 'tst'), (val_subset, 'val')]:
         dst_path = os.path.join(demand_root, subset_name)
@@ -82,14 +82,14 @@ def split_demand(demand_root):
             shutil.move(src_path, dst_path)  
 
 
-def segment_audio_array(audio_array, segment_length_in_s=20.0, fade_length_in_s=1.0, sample_rate=44100):
+def segment_audio_array(audio_array, segment_length_in_s=20.0, fade_length_in_s=1.0, sample_rate=16000):
     """Segment an audio array into segments of a given length. Apply fade-in and fade-out to the segments.
 
     Args:
         audio_array (torch.Tensor): The audio array to segment.
         segment_length_in_s (float, optional): The length of each segment in seconds. Defaults to 20.0.
         fade_length_in_s (float, optional): The length of the fade in and out in seconds. Defaults to 1.0.
-        sample_rate (int, optional): The sample rate of the audio. Defaults to 44100.
+        sample_rate (int, optional): The sample rate of the audio. Defaults to 16000.
 
     Returns:
         segments (torch.Tensor): The segmented audio array.
@@ -116,20 +116,63 @@ def segment_audio_array(audio_array, segment_length_in_s=20.0, fade_length_in_s=
     return faded_segments
 
 
-def slice_demand(demand_root, subset='trn'):
-    """Load all WAV audio files in `demand_root`, slice them in segments of length 10s and save the resulting audio files."""
-    demand_root = os.path.join(demand_root, subset)
-    for environment in os.listdir(demand_root):
-        environment_path = os.path.join(demand_root, environment, environment[:-4])
+def process_dmnd(dmnd_root, subset='trn'):
+    """Load all WAV audio files in `demand_root`, slice them in 4-channel segments of length 4s, and save the resulting audio files."""
+    dmnd_root = os.path.join(dmnd_root, subset)
+    for environment in os.listdir(dmnd_root):
+        environment_path = os.path.join(dmnd_root, environment, environment[:-4])
         for file_name in os.listdir(environment_path):
             file_path_src = os.path.join(environment_path, file_name)
             audio, sr = torchaudio.load(file_path_src, channels_first=True)
-            faded_segments = segment_audio_array(audio, segment_length_in_s=5.0, fade_length_in_s=0.5, sample_rate=sr)
-            for i, segment_i in enumerate(faded_segments):
-                slices_path = os.path.join(demand_root, environment, 'SLICES')
+            # Slice audio in 16s segments.
+            segments_16s = segment_audio_array(audio, segment_length_in_s=16.0, fade_length_in_s=0.0, sample_rate=sr)
+            for i, segment_i in enumerate(segments_16s):
+                # Slice segment in 4-channel signals of length 4s.
+                segment_4s = segment_audio_array(segment_i, segment_length_in_s=4.0, fade_length_in_s=0.25, sample_rate=sr)
+                segment_4s = segment_4s.squeeze(1)
+                # Save 4-channel segment.
+                slices_path = os.path.join(dmnd_root, environment, 'ZSLICES')
                 os.makedirs(slices_path, exist_ok=True)
-                file_path_dst = os.path.join(slices_path, f'{file_name[:-4]}_{i:03}.wav')
-                torchaudio.save(file_path_dst, segment_i, sr)
+                file_path_dst = os.path.join(slices_path, f'{file_name[:-4]}_{i:02}.wav')
+                torchaudio.save(file_path_dst, segment_4s, sr)
+
+
+def process_wham(wham_root, subset='trn'):
+    """Concatenate audio files in WHAM database to obtain 4-channel segments of length 4s, and save the resulting audio files."""
+    wham_path = os.path.join(wham_root, 'wham_noise', 'tr')
+    wham_list = os.listdir(wham_path)
+    fade_len_in_s = 0.25
+    fade_len = int(SR * fade_len_in_s)
+    fade_transform = tt.Fade(fade_in_len=fade_len, fade_out_len=fade_len, fade_shape='linear')
+    for i, (file_name_1, file_name_2, file_name_3, file_name_4) in enumerate(zip(wham_list[::4], wham_list[1::4], wham_list[2::4], wham_list[3::4])):
+        # Load audio files.
+        file_path_1 = os.path.join(wham_path, file_name_1)
+        file_path_2 = os.path.join(wham_path, file_name_2)
+        file_path_3 = os.path.join(wham_path, file_name_3)
+        file_path_4 = os.path.join(wham_path, file_name_4)
+        audio_1, sr_1 = torchaudio.load(file_path_1, channels_first=True)
+        audio_2, sr_2 = torchaudio.load(file_path_2, channels_first=True)
+        audio_3, sr_3 = torchaudio.load(file_path_3, channels_first=True)
+        audio_4, sr_4 = torchaudio.load(file_path_4, channels_first=True)
+        assert sr_1 == sr_2 == sr_3 == sr_4 == SR, "Audio files must have the same sample rate."
+        # Keep only first channel and first 4s of each audio file (pad if necessary).
+        audio_1 = audio_1[0, :4*SR] if audio_1.size(1) > 4*SR else ff.pad(audio_1, (0, 4*SR-audio_1.size(1)), mode='reflect')[0]
+        audio_2 = audio_2[0, :4*SR] if audio_2.size(1) > 4*SR else ff.pad(audio_2, (0, 4*SR-audio_2.size(1)), mode='reflect')[0]
+        audio_3 = audio_3[0, :4*SR] if audio_3.size(1) > 4*SR else ff.pad(audio_3, (0, 4*SR-audio_3.size(1)), mode='reflect')[0]
+        audio_4 = audio_4[0, :4*SR] if audio_4.size(1) > 4*SR else ff.pad(audio_4, (0, 4*SR-audio_4.size(1)), mode='reflect')[0]
+        # Normalize audio files.
+        audio_1 /= torch.max(torch.abs(audio_1))
+        audio_2 /= torch.max(torch.abs(audio_2))
+        audio_3 /= torch.max(torch.abs(audio_3))
+        audio_4 /= torch.max(torch.abs(audio_4))
+        # Create 4-channel segment of length 4s.
+        segment_4s = torch.stack((audio_1, audio_2, audio_3, audio_4), dim=0)
+        segment_4s = fade_transform(segment_4s)
+        # Save segment.
+        new_path = os.path.join(wham_root, 'sliced_wham', 'val')
+        os.makedirs(new_path, exist_ok=True)
+        file_path_dst = os.path.join(new_path, f"{i:05}.wav")
+        torchaudio.save(file_path_dst, segment_4s, sr_1)
 
 
 def parse_vctk(vctk_root, subset='trn'):
@@ -168,6 +211,8 @@ def parse_wham(wham_root, subset='tr'):
 
     for file_name in os.listdir(wham_path):
         file_path = os.path.join(wham_path, file_name)
+        # Check if audio file is longer than 8 seconds.
+        audio, sr = torchaudio.load(file_path, channels_first=True)
         file_list.append(file_path)
             
     print(f"Found {len(file_list)} files in '{wham_path}'.")
