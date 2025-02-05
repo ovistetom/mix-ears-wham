@@ -72,16 +72,18 @@ def find_start_index(audio, threshold=0.05):
     start_index = torch.where(audio > threshold*max_value)[0][0]
     return start_index.item()
 
-def slice_end_of_audio_segment(audio_tensor, sr, len_in_s=4.0, fade=True, padding_mode='constant'):
+def slice_end_of_audio_segment(audio_tensor, sr, len_in_s=4.0, fade_out=True, padding_mode='constant'):
     """Slice the end of an audio segment to a given length. Apply fade-out and padding to the segment if necessary."""
     audio_length = audio_tensor.size(0)
     target_length = int(sr*len_in_s)
     if audio_length > target_length:
         return audio_tensor[:target_length]
     else:
-        fader = tt.Fade(fade_in_len=0, fade_out_len=int(sr*random.uniform(0.01, 0.04)), fade_shape='linear')
-        audio_tensor = fader(audio_tensor) if fade else audio_tensor
-        audio_padded = ff.pad(audio_tensor, (0, target_length-audio_length), mode=padding_mode)
+        if fade_out:
+            fader = tt.Fade(fade_in_len=0, fade_out_len=int(sr*random.uniform(0.01, 0.04)), fade_shape='linear')
+            audio_tensor = fader(audio_tensor)
+        
+        audio_padded = ff.pad(audio_tensor.unsqueeze(0), (0, target_length-audio_length), mode=padding_mode)[0]
         return audio_padded
 
 def process_vctk(vctk_root):
@@ -135,7 +137,7 @@ def process_lisp(lisp_root):
     """Split the LibriSpeech database into training, validation and test subsets.
     Load all FLAC audio files in LibriSpeech, slice them in segments of length 4s, and save the resulting audio files."""  
 
-    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-100', 'trn'), ('dev-clean', 'val')]:
+    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-360', 'trn'), ('dev-clean', 'val')]:
         lisp_path = os.path.join(lisp_root, subset_name)
         speaker_list = [ d for d in os.listdir(lisp_path) if os.path.isdir(os.path.join(lisp_path, d)) ]  
         for speaker_name in speaker_list:
@@ -237,10 +239,10 @@ def process_wham(wham_root):
             audio_3 = torchaudio.load(file_path_3, channels_first=True)[0][0]
             audio_4 = torchaudio.load(file_path_4, channels_first=True)[0][0]
             # Keep only first 4s of each audio file (pad if necessary).
-            audio_1 = slice_end_of_audio_segment(audio_1, SR, len_in_s=4, fade=False, padding_mode='reflect')
-            audio_2 = slice_end_of_audio_segment(audio_2, SR, len_in_s=4, fade=False, padding_mode='reflect')
-            audio_3 = slice_end_of_audio_segment(audio_3, SR, len_in_s=4, fade=False, padding_mode='reflect')
-            audio_4 = slice_end_of_audio_segment(audio_4, SR, len_in_s=4, fade=False, padding_mode='reflect')
+            audio_1 = slice_end_of_audio_segment(audio_1, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
+            audio_2 = slice_end_of_audio_segment(audio_2, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
+            audio_3 = slice_end_of_audio_segment(audio_3, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
+            audio_4 = slice_end_of_audio_segment(audio_4, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
             # Create 4-channel segment of length 4s, normalize and fade.
             segment_4s = torch.stack((audio_1, audio_2, audio_3, audio_4), dim=0)
             segment_4s = segment_4s / torch.max(segment_4s, dim=1, keepdim=True)[0]
@@ -279,6 +281,23 @@ def parse_vctk(vctk_root, subset='trn'):
     random.shuffle(mic2_list)
     return mic1_list, mic2_list
 
+def parse_lisp(lisp_root, subset='trn'):
+    """Parse database and return shuffled list of all files in the given subset."""
+    lisp_path = os.path.join(lisp_root, subset)
+    file_list = []
+
+    for speaker_name in os.listdir(lisp_path):
+        speaker_path = os.path.join(lisp_path, speaker_name)
+        for file_name in os.listdir(speaker_path):
+            file_path = os.path.join(speaker_path, file_name)
+            file_ext = os.path.splitext(file_path)[1]
+            if file_ext == '.flac':
+                file_list.append(file_path)
+        
+    print(f"Found {len(file_list)} files in '{lisp_path}'.")
+    random.shuffle(file_list)
+    return file_list
+
 
 def parse_wham(wham_root, subset='trn'):
     """Parse database and return shuffled list of all files in the given subset."""
@@ -294,24 +313,6 @@ def parse_wham(wham_root, subset='trn'):
     return file_list
 
 
-def parse_lisp(lisp_root, subset='train-clean-100'):
-    """Parse database and return shuffled list of all files in the given subset."""
-    lisp_path = os.path.join(lisp_root, subset)
-    file_list = []
-
-    for speaker_name in os.listdir(lisp_path):
-        speaker_path = os.path.join(lisp_path, speaker_name)
-        for book_name in os.listdir(speaker_path):
-            book_path = os.path.join(speaker_path, book_name)
-            for file_name in os.listdir(book_path):
-                file_path = os.path.join(book_path, file_name)
-                file_ext = os.path.splitext(file_path)[1]
-                if file_ext == '.flac':
-                    file_list.append(file_path)
-            
-    print(f"Found {len(file_list)} files in '{lisp_path}'.")
-    random.shuffle(file_list)
-    return file_list
 
 
 def parse_dmnd(dmnd_root, subset='trn'):
@@ -336,7 +337,7 @@ if __name__ == '__main__':
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
     wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/wham_noise"
 
-    process_vctk(vctk_root)
+    # process_vctk(vctk_root)
     # process_lisp(lisp_root)
     # process_dmnd(dmnd_root)
-    # process_wham(wham_root)
+    process_wham(wham_root)

@@ -128,19 +128,20 @@ def random_diffuse_noise_position(room_dim, num_sources=12):
     return [np.array([random.uniform(0, rdx), random.uniform(0, rdy), random.uniform(0, rdz)]) for _ in range(num_sources)]
 
 
-def add_noise(signal_mixed, signal_noise, mics_pos):
-
+def add_noise(signal_mixed, signal_noise, mics_pos, sr=SR, nfft=NFFT):
     # Define target spatial coherence.
-    params = anf.CoherenceMatrix.Parameters(mic_positions=mics_pos, sc_type='spherical', sample_frequency=SR, nfft=NFFT)
+    params = anf.CoherenceMatrix.Parameters(mic_positions=mics_pos, sc_type='spherical', sample_frequency=sr, nfft=nfft)
     # Generate output noise signals with the desired spatial coherence.
     signal_noise, _, _ = anf.generate_signals(signal_noise, params, decomposition='evd', processing='balance+smooth')
-    # Determine the maximum size along the second dimension.
-    max_size = max(signal_mixed.shape[1], signal_noise.shape[1])
-    # Pad both arrays to the maximum size.
-    signal_mixed_padded = np.pad(signal_mixed, ((0, 0), (0, max_size - signal_mixed.shape[1])), mode='constant')
-    signal_noise_padded = np.pad(signal_noise, ((0, 0), (0, max_size - signal_noise.shape[1])), mode='constant')
-
-    return signal_mixed_padded + signal_noise_padded
+    if signal_mixed.shape[1] != signal_noise.shape[1]:
+        # Determine the maximum size along the second dimension.
+        max_size = max(signal_mixed.shape[1], signal_noise.shape[1])
+        # Pad both arrays to the maximum size.
+        signal_mixed_padded = np.pad(signal_mixed, ((0, 0), (0, max_size - signal_mixed.shape[1])), mode='constant')
+        signal_noise_padded = np.pad(signal_noise, ((0, 0), (0, max_size - signal_noise.shape[1])), mode='constant')
+        return signal_mixed_padded + signal_noise_padded
+    else:
+        return signal_mixed + signal_noise
 
 def generate_acoustic_mixture(room_parameters, 
                               signal_clean, 
@@ -150,8 +151,7 @@ def generate_acoustic_mixture(room_parameters,
                               noise_snr, 
                               is_anechoic=False, 
                               root_dir=''):
-
-    # Laod room parameters.
+    # Load room parameters.
     room_dim = room_parameters['room_dim']
     mouth_pos = room_parameters['mouth_pos']
     distr_pos = room_parameters['distr_pos']

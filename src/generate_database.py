@@ -6,17 +6,19 @@ from handle_databases import parse_vctk, parse_lisp, parse_wham, parse_dmnd
 
 if __name__ == '__main__':
 
-    vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK_092/wav48_silence_trimmed"
-    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LIBRIMIX/LibriSpeech"
-    wham_root = r"/home/ovistetom/Documents/Databases_Local/LIBRIMIX/wham_noise"
-    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DEMAND/16k"
+    subset = 'tst'
+
+    vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
+    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
+    wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/sliced_wham"
+    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd"
 
     out = os.path.join(r"/home/ovistetom/Documents/Databases_Local/MIXTURES")
 
-    vctk_list_mic1, vctk_list_mic2 = parse_vctk(vctk_root, subset='tst')
-    lisp_list = parse_lisp(lisp_root, subset='test-clean')
-    wham_list = parse_wham(wham_root, subset='tt')
-    dmnd_list = parse_dmnd(dmnd_root, subset='tst')
+    vctk_list_mic1, vctk_list_mic2 = parse_vctk(vctk_root, subset=subset)
+    lisp_list = parse_lisp(lisp_root, subset=subset)
+    wham_list = parse_wham(wham_root, subset=subset)
+    dmnd_list = parse_dmnd(dmnd_root, subset=subset)
     nois_list = wham_list + dmnd_list
     random.shuffle(nois_list);
 
