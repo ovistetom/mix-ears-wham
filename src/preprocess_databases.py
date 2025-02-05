@@ -82,9 +82,11 @@ def slice_end_of_audio_segment(audio_tensor, sr, len_in_s=4.0, fade_out=True, pa
         if fade_out:
             fader = tt.Fade(fade_in_len=0, fade_out_len=int(sr*random.uniform(0.01, 0.04)), fade_shape='linear')
             audio_tensor = fader(audio_tensor)
-        
         audio_padded = ff.pad(audio_tensor.unsqueeze(0), (0, target_length-audio_length), mode=padding_mode)[0]
         return audio_padded
+    
+def center_audio_tensor(audio_tensor):
+    return (audio_tensor - audio_tensor.mean())
 
 def process_vctk(vctk_root):
     """Split the VCTK database into training, validation and test subsets.
@@ -116,8 +118,9 @@ def process_vctk(vctk_root):
                 file_path_src = os.path.join(speaker_path_src, file_name)
                 audio, sr = torchaudio.load(file_path_src, channels_first=True)
                 audio = audio[0]
-                resample_transform = tt.Resample(orig_freq=sr, new_freq=SR)
-                audio = resample_transform(audio)
+                resampler = tt.Resample(orig_freq=sr, new_freq=SR)
+                audio = resampler(audio)
+                audio = center_audio_tensor(audio)
                 # Find beginning of utterance.
                 start_index = find_start_index(audio)
                 start_index = max(0, start_index - int(SR*random.uniform(0.125, 0.25)))
@@ -137,7 +140,7 @@ def process_lisp(lisp_root):
     """Split the LibriSpeech database into training, validation and test subsets.
     Load all FLAC audio files in LibriSpeech, slice them in segments of length 4s, and save the resulting audio files."""  
 
-    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-360', 'trn'), ('dev-clean', 'val')]:
+    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-100', 'trn'), ('dev-clean', 'val')]:
         lisp_path = os.path.join(lisp_root, subset_name)
         speaker_list = [ d for d in os.listdir(lisp_path) if os.path.isdir(os.path.join(lisp_path, d)) ]  
         for speaker_name in speaker_list:
@@ -147,15 +150,15 @@ def process_lisp(lisp_root):
             for book_name in os.listdir(speaker_path_src):
                 book_path_src = os.path.join(speaker_path_src, book_name)
                 for file_name in os.listdir(book_path_src):
-                    if file_name.endswith('.flac'):
-                        file_path_src = os.path.join(book_path_src, file_name)
-                    else:
+                    if not file_name.endswith('.flac'):
                         continue
                     # Load audio file and resample to 16kHz.
+                    file_path_src = os.path.join(book_path_src, file_name)
                     audio, sr = torchaudio.load(file_path_src, channels_first=True)
                     audio = audio[0]
-                    resample_transform = tt.Resample(orig_freq=sr, new_freq=SR)
-                    audio = resample_transform(audio)
+                    resampler = tt.Resample(orig_freq=sr, new_freq=SR)
+                    audio = resampler(audio)
+                    audio = center_audio_tensor(audio)
                     # Find beginning of utterance.
                     start_index = find_start_index(audio)
                     start_index = max(0, start_index - int(SR*random.uniform(0.125, 0.25)))
@@ -199,8 +202,10 @@ def process_dmnd(dmnd_root):
             os.makedirs(envt_path_dst, exist_ok=True)
 
             for file_name in os.listdir(envt_path_src):
+                # Load audio file.
                 file_path_src = os.path.join(envt_path_src, file_name)
                 audio, sr = torchaudio.load(file_path_src, channels_first=True)
+                audio = center_audio_tensor(audio)
                 # Slice audio in 16s segments.
                 segments_16s = segment_audio_array(audio, segment_length_in_s=16, fade_length_in_s=0, sample_rate=sr)
                 for i, segment_i in enumerate(segments_16s):
@@ -238,6 +243,11 @@ def process_wham(wham_root):
             audio_2 = torchaudio.load(file_path_2, channels_first=True)[0][0]
             audio_3 = torchaudio.load(file_path_3, channels_first=True)[0][0]
             audio_4 = torchaudio.load(file_path_4, channels_first=True)[0][0]
+            # Center audio files.
+            audio_1 = center_audio_tensor(audio_1)
+            audio_2 = center_audio_tensor(audio_2)
+            audio_3 = center_audio_tensor(audio_3)
+            audio_4 = center_audio_tensor(audio_4)
             # Keep only first 4s of each audio file (pad if necessary).
             audio_1 = slice_end_of_audio_segment(audio_1, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
             audio_2 = slice_end_of_audio_segment(audio_2, SR, len_in_s=4, fade_out=False, padding_mode='reflect')
@@ -268,7 +278,7 @@ def parse_vctk(vctk_root, subset='trn'):
             mic1_path = os.path.join(speaker_path, f'{utterance_name}mic1{flac}')
             mic2_path = os.path.join(speaker_path, f'{utterance_name}mic2{flac}')
 
-            if 'mic2' in file_name:
+            if file_name.endswith('mic2'):
                 mic2_list.append(mic2_path)
             elif os.path.exists(mic2_path):
                 mic1_list.append(mic1_path)
@@ -312,9 +322,6 @@ def parse_wham(wham_root, subset='trn'):
     random.shuffle(file_list)
     return file_list
 
-
-
-
 def parse_dmnd(dmnd_root, subset='trn'):
     """Parse DEMAND database and return shuffled list of all files in the given subset."""
     dmnd_path = os.path.join(dmnd_root, subset)
@@ -336,8 +343,12 @@ if __name__ == '__main__':
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
     wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/wham_noise"
-
-    # process_vctk(vctk_root)
-    # process_lisp(lisp_root)
-    # process_dmnd(dmnd_root)
+    process_vctk(vctk_root)
+    process_lisp(lisp_root)
+    process_dmnd(dmnd_root)
     process_wham(wham_root)
+
+    # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
+    # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
+    # wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/sliced_wham"
+    # dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd"    

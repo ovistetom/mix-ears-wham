@@ -1,7 +1,7 @@
 import os
 import random
 from room_acoustics import create_mixture_audio_sample
-from handle_databases import parse_vctk, parse_lisp, parse_wham, parse_dmnd
+from preprocess_databases import parse_vctk, parse_lisp, parse_wham, parse_dmnd
 
 
 if __name__ == '__main__':
