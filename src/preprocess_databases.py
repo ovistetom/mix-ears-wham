@@ -340,19 +340,21 @@ def parse_dmnd(dmnd_root, subset='trn'):
 
 if __name__ == '__main__':
 
-    subset = 'val'
-
-    # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
+    # rearrange_lisp_subsets(lisp_root)
+
+    vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
+    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
-    # process_vctk(vctk_root)
-    # process_lisp(lisp_root)
+    process_vctk(vctk_root)
+    process_lisp(lisp_root)
     process_dmnd(dmnd_root,repeats=20)
 
+    subset = 'val'
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
     # wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/sliced_wham"
-    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd" 
+    # dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd" 
     # parse_vctk(vctk_root, subset=subset)
     # parse_lisp(lisp_root, subset=subset)
     # parse_wham(wham_root, subset=subset)
