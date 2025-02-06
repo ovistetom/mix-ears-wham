@@ -6,6 +6,7 @@ import torchaudio
 import torchaudio.transforms as tt
 import torch.nn.functional as ff
 
+
 SR = 16000
 
 
@@ -48,14 +49,17 @@ def segment_audio_array(audio_array, segment_length_in_s=20.0, fade_length_in_s=
     faded_segments = fader(segments)
     return faded_segments
 
+
 def find_first_last_index(audio, threshold=0.05):
     """Find the first and last indices in an audio tensor when 0.05*maximum is reached."""
     first_index = torch.where(audio > threshold*audio.max())[0][0]
     last_index = torch.where(audio > threshold*audio.max())[0][-1]
     return first_index.item(), last_index.item()
 
+
 def center_audio_tensor(audio_tensor):
     return (audio_tensor - audio_tensor.mean())
+
 
 def pad_end_of_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_out_len_in_s=None, padding_mode='constant'):
     """Pad the end of an audio segment to a given length. Apply fade-out to the segment if necessary."""
@@ -73,6 +77,7 @@ def pad_end_of_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_out_len
         audio_padded = ff.pad(audio_tensor.unsqueeze(0), (0, target_length-audio_length), mode=padding_mode)[0]
         return audio_padded
     
+
 def pad_beginning_of_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_in_len_in_s=None, padding_mode='constant'):
     """Pad the beginning of an audio segment to a given length. Apply fade-in to the segment if necessary."""
     audio_length = audio_tensor.size(0)
@@ -88,6 +93,7 @@ def pad_beginning_of_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_i
     else:
         audio_padded = ff.pad(audio_tensor.unsqueeze(0), (target_length-audio_length, 0), mode=padding_mode)[0]
         return audio_padded
+
 
 def pad_and_slice_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_in_len_in_s=None, fade_out_len_in_s=None, padding_mode='constant'):
     """Pad and slice an audio segment to a given length. Length of padding is chosen randomly."""
@@ -146,12 +152,13 @@ def process_vctk(vctk_root):
                 file_path_dst = os.path.join(speaker_path_dst, file_name)
                 torchaudio.save(file_path_dst, audio.unsqueeze(0), SR)            
 
+
 def process_lisp(lisp_root):
     """Split the LibriSpeech database into training, validation and test subsets.
     Load all FLAC audio files in LibriSpeech, slice them in segments of length 4s, and save the resulting audio files."""  
 
     # Parse and process each subset.
-    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-100', 'trn'), ('dev-clean', 'val')]:
+    for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-360', 'trn'), ('dev-clean', 'val')]:
         lisp_path = os.path.join(lisp_root, subset_name)
         speaker_list = [ d for d in os.listdir(lisp_path) if os.path.isdir(os.path.join(lisp_path, d)) ]  
         for speaker_name in speaker_list:
@@ -185,6 +192,7 @@ def process_lisp(lisp_root):
                     # Save segment.
                     file_path_dst = os.path.join(speaker_path_dst, file_name)
                     torchaudio.save(file_path_dst, audio.unsqueeze(0), SR)                 
+
 
 def process_dmnd(dmnd_root, repeats=1):
     """Split the DEMAND database into training, validation and test subsets.
@@ -323,6 +331,7 @@ def parse_wham(wham_root, subset='trn'):
     random.shuffle(file_list)
     return file_list
 
+
 def parse_dmnd(dmnd_root, subset='trn'):
     """Parse DEMAND database and return shuffled list of all files in the given subset."""
     dmnd_path = os.path.join(dmnd_root, subset)
@@ -338,6 +347,7 @@ def parse_dmnd(dmnd_root, subset='trn'):
     random.shuffle(file_list)
     return file_list
 
+
 if __name__ == '__main__':
 
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
@@ -346,7 +356,7 @@ if __name__ == '__main__':
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
-    process_vctk(vctk_root)
+    # process_vctk(vctk_root)
     process_lisp(lisp_root)
     process_dmnd(dmnd_root,repeats=20)
 
