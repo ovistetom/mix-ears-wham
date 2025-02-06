@@ -9,6 +9,27 @@ import torch.nn.functional as ff
 SR = 16000
 
 
+def rearrange_lisp_subsets(lisp_root):
+    """Split LibriSpeech 'train-clean-100' subset into 'test-clean' and 'dev-clean'."""
+    # Generate and shuffle the list of all LibriSpeech speakers in 'train-clean-100'.
+    train_root = os.path.join(lisp_root, 'train-clean-100')
+    list_speakers = [d for d in os.listdir(train_root) if os.path.isdir(os.path.join(train_root, d))]
+    num_speakers = len(list_speakers)
+    random.shuffle(list_speakers)
+    # Compute test subset size.
+    tst_size = round(0.5*num_speakers)
+    # Split shuffled list into subsets.
+    tst_subset = list_speakers[:tst_size]
+    dev_subset = list_speakers[tst_size:]
+    # Move speakers directories to corresponding subset directory.
+    for subset, subset_name  in [(tst_subset, 'test-clean'), (dev_subset, 'dev-clean')]:
+        dst_path = os.path.join(lisp_root, subset_name)
+        os.makedirs(dst_path, exist_ok=True)
+        for speaker in subset:
+            src_path = os.path.join(train_root, speaker)
+            shutil.move(src_path, dst_path)
+
+
 def segment_audio_array(audio_array, segment_length_in_s=20.0, fade_length_in_s=1.0, sample_rate=16000):
     """Segment an audio array into segments of a given length. Apply fade-in and fade-out to the segments."""
     # Initialize segments array.
@@ -35,7 +56,6 @@ def find_first_last_index(audio, threshold=0.05):
 
 def center_audio_tensor(audio_tensor):
     return (audio_tensor - audio_tensor.mean())
-
 
 def pad_end_of_audio_segment(audio_tensor, sr, target_len_in_s=4.0, fade_out_len_in_s=None, padding_mode='constant'):
     """Pad the end of an audio segment to a given length. Apply fade-out to the segment if necessary."""
@@ -166,7 +186,7 @@ def process_lisp(lisp_root):
                     file_path_dst = os.path.join(speaker_path_dst, file_name)
                     torchaudio.save(file_path_dst, audio.unsqueeze(0), SR)                 
 
-def process_dmnd(dmnd_root):
+def process_dmnd(dmnd_root, repeats=1):
     """Split the DEMAND database into training, validation and test subsets.
     Load all WAV audio files in DEMAND, slice them in 4-channel segments of length 4s, and save the resulting audio files."""
     
@@ -200,20 +220,22 @@ def process_dmnd(dmnd_root):
                 audio = center_audio_tensor(audio)
                 # Slice the audio segment to a multiple of 16s.
                 audio_len_in_s = audio.size(0) // SR
-                audio = pad_and_slice_audio_segment(audio, SR, target_len_in_s = audio_len_in_s - audio_len_in_s%16)
-                # Slice audio in 4s segments.
-                segments_4s = segment_audio_array(audio, segment_length_in_s=4, fade_length_in_s=0, sample_rate=sr)
-                segments_4s = segments_4s.reshape(segments_4s.size(0)//4, 4, -1)
-                segments_4s = list(segments_4s)
-                random.shuffle(segments_4s);
-                for i, segment_i in enumerate(segments_4s):
-                    # Fade and normalize.
-                    fader = tt.Fade(fade_in_len=int(sr*0.01), fade_out_len=int(sr*0.01), fade_shape='linear')
-                    segment_4c = fader(segment_i)
-                    segment_4c /= torch.max(segment_4c)
-                    # Save 4-channel segment.
-                    file_path_dst = os.path.join(envt_path_dst, f'{file_name[:-4]}_{i:02}.flac')
-                    torchaudio.save(file_path_dst, segment_4c, sr)                
+                # Repeat several times make database larger.
+                for r in range(repeats):
+                    audio_sliced = pad_and_slice_audio_segment(audio, SR, target_len_in_s = audio_len_in_s - audio_len_in_s%16)
+                    # Slice audio in 4s segments.
+                    segments_4s = segment_audio_array(audio_sliced, segment_length_in_s=4, fade_length_in_s=0, sample_rate=sr)
+                    segments_4s = segments_4s.reshape(segments_4s.size(0)//4, 4, -1)
+                    segments_4s = list(segments_4s)
+                    random.shuffle(segments_4s);
+                    for i, segment_i in enumerate(segments_4s):
+                        # Fade and normalize.
+                        fader = tt.Fade(fade_in_len=int(sr*0.01), fade_out_len=int(sr*0.01), fade_shape='linear')
+                        segment_4c = fader(segment_i)
+                        segment_4c /= torch.max(segment_4c)
+                        # Save 4-channel segment.
+                        file_path_dst = os.path.join(envt_path_dst, f'{file_name[:-4]}_{r:02}{i:02}.flac')
+                        torchaudio.save(file_path_dst, segment_4c, sr)                
 
 
 def process_wham(wham_root):
@@ -254,7 +276,6 @@ def process_wham(wham_root):
             # Save segment.
             file_path_dst = os.path.join(wham_path_dst, f"{i:05}.flac")
             torchaudio.save(file_path_dst, segment_4s, SR)
-
 
 
 def parse_vctk(vctk_root, subset='trn'):
@@ -319,21 +340,19 @@ def parse_dmnd(dmnd_root, subset='trn'):
 
 if __name__ == '__main__':
 
-    subset = 'trn'
+    subset = 'val'
 
-    vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
-    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
+    # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
+    # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
-    wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/wham_noise"
-    process_vctk(vctk_root)
-    process_lisp(lisp_root)
-    # process_dmnd(dmnd_root)
-    # process_wham(wham_root)
+    # process_vctk(vctk_root)
+    # process_lisp(lisp_root)
+    process_dmnd(dmnd_root,repeats=20)
 
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
     # wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/sliced_wham"
-    # dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd" 
+    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd" 
     # parse_vctk(vctk_root, subset=subset)
     # parse_lisp(lisp_root, subset=subset)
     # parse_wham(wham_root, subset=subset)
