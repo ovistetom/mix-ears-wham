@@ -7,7 +7,7 @@ import torch
 import torchaudio
 import torchaudio.transforms as tt
 import os
-from preprocess_databases import slice_end_of_audio_segment
+
 
 SR = 16000
 NFFT = 1024
@@ -295,9 +295,9 @@ if __name__ == '__main__':
 
     is_anechoic = False
     # Define audio file paths.
-    file_path_clean = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p265", "p265_003_mic1.flac")
-    file_path_distr = os.path.join("database", "VCTK", "wav48_silence_trimmed", "p304", "p304_003_mic1.flac")
-    file_path_noise = os.path.join("database", "WHAM", "tr", "01aa010b_0.97482_209a010p_-0.97482.wav")
+    file_path_clean = os.path.join("database", "VCTK", "p225_192_mic2.flac")
+    file_path_distr = os.path.join("database", "LISP", "19-198-0001.flac")
+    file_path_noise = os.path.join("database", "DMND", "ch01_0000.flac")
     # Define output path.
     fldr_path_mixed = os.path.join("out", "test")
     os.makedirs(fldr_path_mixed, exist_ok=True)
