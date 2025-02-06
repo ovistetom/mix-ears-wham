@@ -299,8 +299,20 @@ if __name__ == '__main__':
     file_path_distr = os.path.join("database", "LISP", "19-198-0001.flac")
     file_path_noise = os.path.join("database", "DMND", "ch01_0000.flac")
     # Define output path.
-    fldr_path_mixed = os.path.join("out", "test")
+    fldr_path_mixed = os.path.join("out")
     os.makedirs(fldr_path_mixed, exist_ok=True)
     # Create mixture.
-    create_mixture_audio_sample(file_path_clean, file_path_distr, file_path_noise, room_is_anechoic=is_anechoic, path_to_output_folder=fldr_path_mixed) 
-
+    create_mixture_audio_sample(file_path_clean,
+                                file_path_distr, 
+                                file_path_noise, 
+                                room_is_anechoic=False, 
+                                path_to_output_folder=fldr_path_mixed,
+                                target_length_in_s=4.0,
+                                )
+    create_mixture_audio_sample(file_path_clean,
+                                file_path_distr, 
+                                file_path_noise, 
+                                room_is_anechoic=True, 
+                                path_to_output_folder=fldr_path_mixed,
+                                target_length_in_s=4.0,
+                                )
