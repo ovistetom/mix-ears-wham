@@ -5,7 +5,7 @@ import random
 import itertools 
 import torch
 import torchaudio
-import torchaudio.transforms
+import torchaudio.transforms as tt
 import os
 from preprocess_databases import slice_end_of_audio_segment
 
@@ -16,7 +16,7 @@ NFFT = 1024
 def load_audio_file(file_path):
     signal, sr = torchaudio.load(file_path, channels_first=True)
     if sr != SR:
-        signal = torchaudio.transforms.Resample(sr, SR)(signal)
+        signal = tt.Resample(sr, SR)(signal)
     return signal.numpy()
 
 
@@ -147,9 +147,11 @@ def generate_acoustic_mixture(room_parameters,
                               signal_noise, 
                               distr_snr, 
                               noise_snr, 
-                              is_anechoic=False, 
+                              is_anechoic=False,
+                              target_length_in_s=None,
                               out_dir='',
-                              target_length_in_s=None):
+                              copy_clean_speech=True,
+                              ):
     # Load room parameters.
     room_dim = room_parameters['room_dim']
     mouth_pos = room_parameters['mouth_pos']
@@ -171,7 +173,7 @@ def generate_acoustic_mixture(room_parameters,
         signal_mixed = room.mic_array.signals
 
         # Save audio file.
-        path_to_mixture_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.wav")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.flac")
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
@@ -187,7 +189,7 @@ def generate_acoustic_mixture(room_parameters,
         signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)
 
         # Save audio file.
-        path_to_mixture_sample = os.path.join(out_dir, f"mixed_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")
 
     # CASE #3: with distractor, with ambient noise.
     else:
@@ -204,14 +206,18 @@ def generate_acoustic_mixture(room_parameters,
         signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)        
 
         # Save audio file.
-        path_to_mixture_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.wav")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")
     
     signal_mixed = pra.normalize(signal_mixed)
     signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
     if target_length_in_s is not None:
-        signal_mixed = slice_end_of_audio_segment(signal_mixed, SR, target_len_in_s=target_length_in_s, fade_out_len_in_s=0.03125)   
-    torchaudio.save(path_to_mixture_sample, signal_mixed, SR)
-
+        signal_mixed = signal_mixed[:, :int(SR*target_length_in_s)]
+        fader = tt.Fade(fade_in_len=0, fade_out_len=int(SR*0.03125), fade_shape='linear')
+        signal_mixed = fader(signal_mixed)
+    torchaudio.save(path_to_mixed_sample, signal_mixed, SR)
+    if copy_clean_speech:
+        signal_clean = torch.from_numpy(signal_clean).to(torch.float32).unsqueeze(0)
+        torchaudio.save(os.path.join(out_dir, 'clean.flac'), signal_clean, SR)
 
 def create_mixture_audio_sample(path_to_speaker_sample, 
                                 path_to_distractor_sample, 
@@ -267,9 +273,9 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     signal_noise = signal_noise * np.power(10, -noise_snr/20)
 
     # Generate three mixtures.
-    generate_acoustic_mixture(room_params, signal_clean, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder)
-    generate_acoustic_mixture(room_params, signal_clean, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder)
-    generate_acoustic_mixture(room_params, signal_clean, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder)
+    generate_acoustic_mixture(room_params, signal_clean, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
+    generate_acoustic_mixture(room_params, signal_clean, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
+    generate_acoustic_mixture(room_params, signal_clean, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
 
     # Generate metadata text file.
     with open(os.path.join(path_to_output_folder, "metadata.txt"), 'w') as f:
