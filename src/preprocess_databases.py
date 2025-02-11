@@ -145,7 +145,7 @@ def process_vctk(vctk_root):
                 # Pad the audio segment to 4s.
                 audio = pad_and_slice_audio_segment(audio, SR, target_len_in_s=4.0, fade_in_len_in_s=random.uniform(0.1, 0.4), fade_out_len_in_s=random.uniform(0.1, 0.4))
                 # Fade and normalize.
-                fader = tt.Fade(fade_in_len=int(SR*0.1), fade_out_len=int(SR*0.1), fade_shape='linear')                
+                fader = tt.Fade(fade_in_len=1024, fade_out_len=1024, fade_shape='linear')                
                 audio = fader(audio)
                 audio /= audio.abs().max()
                 # Save segment.
@@ -186,7 +186,7 @@ def process_lisp(lisp_root):
                     # Pad the audio segment to 4s.
                     audio = pad_and_slice_audio_segment(audio, SR, target_len_in_s=4.0, fade_in_len_in_s=random.uniform(0.1, 0.4), fade_out_len_in_s=random.uniform(0.1, 0.4))
                     # Fade and normalize.
-                    fader = tt.Fade(fade_in_len=int(SR*0.01), fade_out_len=int(SR*0.1), fade_shape='linear')                
+                    fader = tt.Fade(fade_in_len=1024, fade_out_len=1024, fade_shape='linear')                
                     audio = fader(audio)
                     audio /= audio.abs().max()
                     # Save segment.
@@ -238,7 +238,7 @@ def process_dmnd(dmnd_root, repeats=1):
                     random.shuffle(segments_4s);
                     for i, segment_i in enumerate(segments_4s):
                         # Fade and normalize.
-                        fader = tt.Fade(fade_in_len=int(sr*0.01), fade_out_len=int(sr*0.01), fade_shape='linear')
+                        fader = tt.Fade(fade_in_len=512, fade_out_len=512, fade_shape='linear')
                         segment_4c = fader(segment_i)
                         segment_4c /= torch.max(segment_4c)
                         # Save 4-channel segment.
@@ -356,11 +356,11 @@ if __name__ == '__main__':
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
-    # process_vctk(vctk_root)
+    process_vctk(vctk_root)
     process_lisp(lisp_root)
     process_dmnd(dmnd_root,repeats=20)
 
-    subset = 'val'
+    # subset = 'val'
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
     # wham_root = r"/home/ovistetom/Documents/Databases_Local/WHAM/sliced_wham"
