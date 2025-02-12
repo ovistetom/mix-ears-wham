@@ -6,11 +6,9 @@ from tqdm import tqdm
 if __name__ == '__main__':
 
     subsets = ['trn', 'tst', 'val']
-
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd"
-
     out_root = os.path.join(r"/home/ovistetom/Documents/Databases_Local/MIXTURES")
 
     for subset in subsets:
@@ -30,14 +28,14 @@ if __name__ == '__main__':
                                         file_path_distr, 
                                         file_path_noise, 
                                         room_is_anechoic=False, 
-                                        path_to_output_folder=os.path.join(out_i, 'echoFalse'),
+                                        path_to_output_folder=os.path.join(out_i, 'echoTrue'),
                                         target_length_in_s=4.0,
                                         )
             create_mixture_audio_sample(file_path_truth,
                                         file_path_distr, 
                                         file_path_noise, 
                                         room_is_anechoic=True, 
-                                        path_to_output_folder=os.path.join(out_i, 'echoTrue'),
+                                        path_to_output_folder=os.path.join(out_i, 'echoFalse'),
                                         target_length_in_s=4.0,
                                         )
 
