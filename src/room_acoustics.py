@@ -170,14 +170,14 @@ def generate_acoustic_mixture(room_parameters,
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_mixed = room.mic_array.signals
-        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.flac")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{round(distr_snr):+}_noiseSNR+Inf_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_clean_simul = room.mic_array.signals
-        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{distr_snr:+.1f}_noiseSNR+Inf_echo{not is_anechoic}.flac")        
+        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{round(distr_snr):+}_noiseSNR+Inf_echo{not is_anechoic}.flac")        
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
@@ -190,14 +190,14 @@ def generate_acoustic_mixture(room_parameters,
         signal_mixed = room.mic_array.signals
         # Add spatially coherent noise.
         signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)
-        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR+Inf_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_clean_simul = room.mic_array.signals
-        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR+Inf_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")             
+        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR+Inf_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")             
 
     # CASE #3: with distractor, with ambient noise.
     else:
@@ -211,14 +211,14 @@ def generate_acoustic_mixture(room_parameters,
         signal_mixed = room.mic_array.signals
         # Add spatially coherent noise.
         signal_mixed = add_noise(signal_mixed, signal_noise, mics_pos)        
-        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")
+        path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{round(distr_snr):+}_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
         room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         signal_clean_simul = room.mic_array.signals
-        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{distr_snr:+.1f}_noiseSNR{noise_snr:+.1f}_echo{not is_anechoic}.flac")
+        path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{round(distr_snr):+}_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
 
     # Normalize mixture signal; save normalization coefficient.
     signal_norm = np.abs(signal_mixed).max()
@@ -252,8 +252,9 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     mouth_pos = random_mouth_position(head_pos,  head_ang)
     distr_pos = random_distractor_position(room_dim, head_pos)
 
-    distr_snr = random_snr(-5, 5)
-    noise_snr = random_snr(-8, 8)
+    # Define target SNRs.
+    distr_snr = random_snr(-15, 3)
+    noise_snr = random_snr(-30, 3)
 
     # Define acoustic parameters.
     if room_is_anechoic:
@@ -284,7 +285,7 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     signal_distr = pra.normalize(signal_distr)
     signal_noise = pra.normalize(signal_noise)
 
-    # Apply desired SNR.
+    # Apply target SNR.
     power_clean = np.pow(signal_clean, 2).mean()
     power_distr = np.pow(signal_distr, 2).mean()
     power_noise = np.pow(signal_noise, 2).mean()
@@ -326,7 +327,7 @@ if __name__ == '__main__':
     file_path_distr = os.path.join("database", "LISP", "19-198-0001.flac")
     file_path_noise = os.path.join("database", "DMND", "ch01_0000.flac")
     # Define output path.
-    fldr_path_mixed = os.path.join("out")
+    fldr_path_mixed = os.path.join("audio")
     os.makedirs(fldr_path_mixed, exist_ok=True)
     # Create mixture.
     create_mixture_audio_sample(file_path_clean,

@@ -5,7 +5,7 @@ import torch
 import torchaudio
 import torchaudio.transforms as tt
 import torch.nn.functional as ff
-
+from tqdm import tqdm
 
 SR = 16000
 
@@ -124,7 +124,7 @@ def process_vctk(vctk_root):
 
     # Parse and process each subset.
     for subset, subset_name  in [(trn_subset, 'trn'), (tst_subset, 'tst'), (val_subset, 'val')]:
-        for speaker in subset:
+        for speaker in tqdm(subset, desc=f"Processing speakers in VCTK/{subset_name}"):
             speaker_path_src = os.path.join(vctk_path, speaker)
             speaker_path_dst = os.path.join(os.path.dirname(vctk_root), 'sliced_vctk', subset_name, speaker)
             os.makedirs(speaker_path_dst, exist_ok=True)        
@@ -161,7 +161,7 @@ def process_lisp(lisp_root):
     for (subset_name, new_subset_name) in [('test-clean', 'tst'), ('train-clean-360', 'trn'), ('dev-clean', 'val')]:
         lisp_path = os.path.join(lisp_root, subset_name)
         speaker_list = [ d for d in os.listdir(lisp_path) if os.path.isdir(os.path.join(lisp_path, d)) ]  
-        for speaker_name in speaker_list:
+        for speaker_name in tqdm(speaker_list, desc=f"Processing speakers in LISP/{subset_name}"):
             speaker_path_src = os.path.join(lisp_path, speaker_name)
             speaker_path_dst = os.path.join(os.path.dirname(lisp_root), 'sliced_lisp', new_subset_name, speaker_name)
             os.makedirs(speaker_path_dst, exist_ok=True)            
@@ -212,7 +212,7 @@ def process_dmnd(dmnd_root, repeats=1):
     val_subset = list_environments[-val_size:]    
     # Parse and process each subset.
     for subset, subset_name  in [(trn_subset, 'trn'), (tst_subset, 'tst'), (val_subset, 'val')]:    
-        for environment in subset:
+        for environment in tqdm(subset, desc=f"Processing noise envs in DMND/{subset_name}"):
             envt_name = environment[:-4]
             envt_path_src = os.path.join(dmnd_root, '16k', environment, envt_name)
             envt_path_dst = os.path.join(os.path.dirname(dmnd_root), 'sliced_dmnd', subset_name, envt_name)
@@ -357,8 +357,8 @@ if __name__ == '__main__':
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
     process_vctk(vctk_root)
-    process_lisp(lisp_root)
-    process_dmnd(dmnd_root,repeats=20)
+    # process_lisp(lisp_root)
+    # process_dmnd(dmnd_root,repeats=20)
 
     # subset = 'val'
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"

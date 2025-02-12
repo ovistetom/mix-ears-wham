@@ -1,8 +1,7 @@
 import os
-import random
 from room_acoustics import create_mixture_audio_sample
 from preprocess_databases import parse_vctk, parse_lisp, parse_dmnd
-
+from tqdm import tqdm
 
 if __name__ == '__main__':
 
@@ -20,7 +19,7 @@ if __name__ == '__main__':
         lisp_list = parse_lisp(lisp_root, subset=subset)
         dmnd_list = parse_dmnd(dmnd_root, subset=subset)
 
-        for i, (file_path_clean, file_path_distr, file_path_noise) in enumerate(zip(vctk_list, lisp_list, dmnd_list)):
+        for i, (file_path_clean, file_path_distr, file_path_noise) in enumerate(tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'")):
 
             out_i = os.path.join(out_root, subset, f"{i:05}")
             os.makedirs(out_i, exist_ok=True)
