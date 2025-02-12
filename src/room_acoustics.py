@@ -226,13 +226,11 @@ def generate_acoustic_mixture(room_parameters,
     # Normalize and save (multic-channel) clean speech signal.
     signal_clean_simul /= signal_norm
     signal_clean_simul = torch.from_numpy(signal_clean_simul).to(torch.float32)
-    # Save mixture signal; slice and fade signal tail if necessary.
+    # Save mixture signal; slice signal tail if necessary.
     signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
     if target_length_in_s is not None:
         signal_mixed = signal_mixed[:, :int(SR*target_length_in_s)]
         signal_clean_simul = signal_clean_simul[:, :int(SR*target_length_in_s)]
-        # fader = tt.Fade(fade_in_len=0, fade_out_len=int(SR*0.03125), fade_shape='linear')
-        # signal_mixed = fader(signal_mixed)
     torchaudio.save(path_to_clean_sample, signal_clean_simul, SR)
     torchaudio.save(path_to_mixed_sample, signal_mixed, SR)
 
@@ -287,8 +285,13 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     signal_noise = pra.normalize(signal_noise)
 
     # Apply desired SNR.
-    signal_distr = signal_distr * np.power(10, -distr_snr/20)
-    signal_noise = signal_noise * np.power(10, -noise_snr/20)
+    power_clean = np.pow(signal_clean, 2).mean()
+    power_distr = np.pow(signal_distr, 2).mean()
+    power_noise = np.pow(signal_noise, 2).mean()
+    distr_current_snr = 10*np.log10(power_clean/power_distr)
+    noise_current_snr = 10*np.log10(power_clean/power_noise)
+    signal_distr *= 10**(0.05*(distr_current_snr - distr_snr))
+    signal_noise *= 10**(0.05*(noise_current_snr - noise_snr))
 
     # Generate three mixtures.
     generate_acoustic_mixture(room_params, signal_clean, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
