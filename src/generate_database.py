@@ -19,24 +19,25 @@ if __name__ == '__main__':
         lisp_list = parse_lisp(lisp_root, subset=subset)
         dmnd_list = parse_dmnd(dmnd_root, subset=subset)
 
-        for i, (file_path_clean, file_path_distr, file_path_noise) in enumerate(tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'")):
+        for i, (file_path_truth, file_path_distr, file_path_noise) in enumerate(tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'")):
 
             out_i = os.path.join(out_root, subset, f"{i:05}")
-            os.makedirs(out_i, exist_ok=True)
-
-            create_mixture_audio_sample(file_path_clean,
+            # Define output path.
+            os.makedirs(os.path.join(out_i, 'echoFalse'), exist_ok=True)
+            os.makedirs(os.path.join(out_i, 'echoTrue'), exist_ok=True)
+            # Create mixture.
+            create_mixture_audio_sample(file_path_truth,
                                         file_path_distr, 
                                         file_path_noise, 
                                         room_is_anechoic=False, 
-                                        path_to_output_folder=out_i,
+                                        path_to_output_folder=os.path.join(out_i, 'echoFalse'),
                                         target_length_in_s=4.0,
                                         )
-            
-            create_mixture_audio_sample(file_path_clean,
+            create_mixture_audio_sample(file_path_truth,
                                         file_path_distr, 
                                         file_path_noise, 
                                         room_is_anechoic=True, 
-                                        path_to_output_folder=out_i,
+                                        path_to_output_folder=os.path.join(out_i, 'echoTrue'),
                                         target_length_in_s=4.0,
                                         )
 

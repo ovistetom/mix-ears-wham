@@ -19,13 +19,11 @@ def load_audio_file(file_path):
         signal = tt.Resample(sr, SR)(signal)
     return signal.numpy()
 
-
 def random_room_dimensions():
     x = random.uniform(4, 10)
     y = random.uniform(4, 10)
     z = random.uniform(2.5, 5)
     return np.array([x, y, z])
-
 
 def random_head_position(room_dim, rdtw=0.125):
     rdx, rdy, _ = room_dim
@@ -34,10 +32,8 @@ def random_head_position(room_dim, rdtw=0.125):
     z = random.uniform(1, 1.75)
     return np.array([x, y, z])
 
-
 def random_head_angle():
     return random.uniform(0, 2*np.pi)
-
 
 def random_mouth_position(head_pos, head_ang):
     hpx, hpy, hpz = head_pos
@@ -49,14 +45,12 @@ def random_mouth_position(head_pos, head_ang):
     z = hpz + rdz
     return np.array([x, y, z])
 
-
 def random_ears_position(head_pos, head_ang):
     hpx, hpy, hpz = head_pos
     rdx = random.uniform(0.08, 0.09)
     ear_center_l = np.array([hpx - rdx*np.cos(head_ang), hpy - rdx*np.sin(head_ang), hpz])
     ear_center_r = np.array([hpx + rdx*np.cos(head_ang), hpy + rdx*np.sin(head_ang), hpz])
     return np.array([ear_center_l, ear_center_r])
-
 
 def define_mics_position(ears_pos):
     ear_center_l, ear_center_r = ears_pos
@@ -67,7 +61,6 @@ def define_mics_position(ears_pos):
     mic_r_1 = np.array([rex, rey, rez - 0.01])
     mic_r_2 = np.array([rex, rey, rez + 0.01])
     return np.array([mic_l_1, mic_l_2, mic_r_1, mic_r_2])
-
 
 def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     rdx, rdy, _ = room_dim
@@ -107,10 +100,8 @@ def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     z = random.uniform(1, 1.75)
     return np.array([x, y, z])
 
-
 def random_snr(a=-5, b=5):
     return random.uniform(a, b)
-
 
 def random_rt60(room_dim):
     v = np.prod(room_dim)
@@ -119,11 +110,6 @@ def random_rt60(room_dim):
     sc = 24
     a = v*sc*np.log(10)/(c*s)
     return random.uniform(a, 1.0)
-
-
-def random_diffuse_noise_position(room_dim, num_sources=12):
-    rdx, rdy, rdz = room_dim
-    return [np.array([random.uniform(0, rdx), random.uniform(0, rdy), random.uniform(0, rdz)]) for _ in range(num_sources)]
 
 
 def add_noise(signal_mixed, signal_noise, mics_pos, sr=SR, nfft=NFFT):
@@ -142,7 +128,7 @@ def add_noise(signal_mixed, signal_noise, mics_pos, sr=SR, nfft=NFFT):
         return signal_mixed + signal_noise
 
 def generate_acoustic_mixture(room_parameters, 
-                              signal_clean, 
+                              signal_truth, 
                               signal_distr, 
                               signal_noise, 
                               distr_snr, 
@@ -159,12 +145,11 @@ def generate_acoustic_mixture(room_parameters,
     e_absorption = room_parameters['e_absorption']
     max_order = room_parameters['max_order']
 
-
     # CASE #1: with distractor, without ambient noise.
     if signal_noise is None:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         room.add_source(distr_pos, signal=signal_distr, delay=0.0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
@@ -173,17 +158,17 @@ def generate_acoustic_mixture(room_parameters,
         path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{round(distr_snr):+}_noiseSNR+Inf_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        signal_clean_simul = room.mic_array.signals
+        signal_clean = room.mic_array.signals
         path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{round(distr_snr):+}_noiseSNR+Inf_echo{not is_anechoic}.flac")        
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
@@ -193,17 +178,17 @@ def generate_acoustic_mixture(room_parameters,
         path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR+Inf_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        signal_clean_simul = room.mic_array.signals
+        signal_clean = room.mic_array.signals
         path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR+Inf_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")             
 
     # CASE #3: with distractor, with ambient noise.
     else:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         room.add_source(distr_pos, signal=signal_distr, delay=0.0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
@@ -214,24 +199,24 @@ def generate_acoustic_mixture(room_parameters,
         path_to_mixed_sample = os.path.join(out_dir, f"mixed_distrSNR{round(distr_snr):+}_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
         # Repeat to re-create clean speech in similar simulated conditons.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
-        room.add_source(mouth_pos, signal=signal_clean, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        signal_clean_simul = room.mic_array.signals
+        signal_clean = room.mic_array.signals
         path_to_clean_sample = os.path.join(out_dir, f"clean_distrSNR{round(distr_snr):+}_noiseSNR{round(noise_snr):+}_echo{not is_anechoic}.flac")
 
     # Normalize mixture signal; save normalization coefficient.
     signal_norm = np.abs(signal_mixed).max()
     signal_mixed /= signal_norm
-    # Normalize and save (multic-channel) clean speech signal.
-    signal_clean_simul /= signal_norm
-    signal_clean_simul = torch.from_numpy(signal_clean_simul).to(torch.float32)
+    # Normalize and save (multi-channel) clean speech signal.
+    signal_clean /= signal_norm
+    signal_clean = torch.from_numpy(signal_clean).to(torch.float32)
     # Save mixture signal; slice signal tail if necessary.
     signal_mixed = torch.from_numpy(signal_mixed).to(torch.float32)
     if target_length_in_s is not None:
         signal_mixed = signal_mixed[:, :int(SR*target_length_in_s)]
-        signal_clean_simul = signal_clean_simul[:, :int(SR*target_length_in_s)]
-    torchaudio.save(path_to_clean_sample, signal_clean_simul, SR)
+        signal_clean = signal_clean[:, :int(SR*target_length_in_s)]
+    torchaudio.save(path_to_clean_sample, signal_clean, SR)
     torchaudio.save(path_to_mixed_sample, signal_mixed, SR)
 
 
@@ -241,6 +226,7 @@ def create_mixture_audio_sample(path_to_speaker_sample,
                                 path_to_output_folder='',
                                 room_is_anechoic=False,
                                 target_length_in_s=4.0,
+                                normalize_signals=False,
                                 ):
 
     # Define acoustic scene.
@@ -276,17 +262,18 @@ def create_mixture_audio_sample(path_to_speaker_sample,
         }
     
     # Load audio files.
-    signal_clean = load_audio_file(path_to_speaker_sample)[0]
+    signal_truth = load_audio_file(path_to_speaker_sample)[0]
     signal_distr = load_audio_file(path_to_distractor_sample)[0]
     signal_noise = load_audio_file(path_to_noise_sample)
 
     # Normalize signals.
-    signal_clean = pra.normalize(signal_clean)
-    signal_distr = pra.normalize(signal_distr)
-    signal_noise = pra.normalize(signal_noise)
+    if normalize_signals:
+        signal_truth = pra.normalize(signal_truth)
+        signal_distr = pra.normalize(signal_distr)
+        signal_noise = pra.normalize(signal_noise)
 
     # Apply target SNR.
-    power_clean = np.pow(signal_clean, 2).mean()
+    power_clean = np.pow(signal_truth, 2).mean()
     power_distr = np.pow(signal_distr, 2).mean()
     power_noise = np.pow(signal_noise, 2).mean()
     distr_current_snr = 10*np.log10(power_clean/power_distr)
@@ -295,18 +282,18 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     signal_noise *= 10**(0.05*(noise_current_snr - noise_snr))
 
     # Generate three mixtures.
-    generate_acoustic_mixture(room_params, signal_clean, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
-    generate_acoustic_mixture(room_params, signal_clean, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
-    generate_acoustic_mixture(room_params, signal_clean, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
+    generate_acoustic_mixture(room_params, signal_truth, signal_distr, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
+    generate_acoustic_mixture(room_params, signal_truth, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
+    generate_acoustic_mixture(room_params, signal_truth, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
 
     # Copy (single-channel) clean and distractor speech signals.
-    signal_clean = torch.from_numpy(signal_clean).to(torch.float32).unsqueeze(0)
-    torchaudio.save(os.path.join(path_to_output_folder, 'clean.flac'), signal_clean, SR)
-    signal_distr = torch.from_numpy(signal_distr).to(torch.float32).unsqueeze(0)
-    torchaudio.save(os.path.join(path_to_output_folder, 'distr.flac'), signal_distr, SR)  
+    signal_truth = torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0)
+    torchaudio.save(os.path.join(path_to_output_folder, 'truth.flac'), signal_truth, SR)
+    # signal_distr = torch.from_numpy(signal_distr).to(torch.float32).unsqueeze(0)
+    # torchaudio.save(os.path.join(path_to_output_folder, 'distr.flac'), signal_distr, SR)  
 
     # Generate metadata text file.
-    with open(os.path.join(path_to_output_folder, "metadata.txt"), 'w') as f:
+    with open(os.path.join(path_to_output_folder, 'metadata.txt'), 'w') as f:
         f.write(f"Speaker sample:\n\t{path_to_speaker_sample}\n")
         f.write(f"Distractor sample:\n\t{path_to_distractor_sample}\n")
         f.write(f"Noise sample:\n\t{path_to_noise_sample}\n")
@@ -328,20 +315,20 @@ if __name__ == '__main__':
     file_path_noise = os.path.join("database", "DMND", "ch01_0000.flac")
     # Define output path.
     fldr_path_mixed = os.path.join("audio")
-    os.makedirs(fldr_path_mixed, exist_ok=True)
+    os.makedirs(os.path.join(fldr_path_mixed, 'echoFalse'), exist_ok=True)
+    os.makedirs(os.path.join(fldr_path_mixed, 'echoTrue'), exist_ok=True)
     # Create mixture.
     create_mixture_audio_sample(file_path_clean,
                                 file_path_distr, 
                                 file_path_noise, 
                                 room_is_anechoic=False, 
-                                path_to_output_folder=fldr_path_mixed,
+                                path_to_output_folder=os.path.join(fldr_path_mixed, 'echoFalse'),
                                 target_length_in_s=4.0,
                                 )
-    
     create_mixture_audio_sample(file_path_clean,
                                 file_path_distr, 
                                 file_path_noise, 
                                 room_is_anechoic=True, 
-                                path_to_output_folder=fldr_path_mixed,
+                                path_to_output_folder=os.path.join(fldr_path_mixed, 'echoTrue'),
                                 target_length_in_s=4.0,
                                 )

@@ -240,7 +240,7 @@ def process_dmnd(dmnd_root, repeats=1):
                         # Fade and normalize.
                         fader = tt.Fade(fade_in_len=512, fade_out_len=512, fade_shape='linear')
                         segment_4c = fader(segment_i)
-                        segment_4c /= torch.max(segment_4c)
+                        segment_4c /= segment_4c.abs().max()
                         # Save 4-channel segment.
                         file_path_dst = os.path.join(envt_path_dst, f'{file_name[:-4]}_{r:02}{i:02}.flac')
                         torchaudio.save(file_path_dst, segment_4c, sr)                
@@ -357,8 +357,8 @@ if __name__ == '__main__':
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
     process_vctk(vctk_root)
-    # process_lisp(lisp_root)
-    # process_dmnd(dmnd_root,repeats=20)
+    process_lisp(lisp_root)
+    process_dmnd(dmnd_root,repeats=20)
 
     # subset = 'val'
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
