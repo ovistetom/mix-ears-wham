@@ -2,9 +2,13 @@ import os
 from room_acoustics import create_mixture_audio_sample
 from preprocess_databases import parse_vctk, parse_lisp, parse_dmnd
 from tqdm import tqdm
+import time
 
 if __name__ == '__main__':
 
+    time.sleep(3600*2)
+    print("GO!")
+    
     subsets = ['trn', 'tst', 'val']
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
