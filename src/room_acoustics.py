@@ -286,11 +286,9 @@ def create_mixture_audio_sample(path_to_speaker_sample,
     generate_acoustic_mixture(room_params, signal_truth, None, signal_noise, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
     generate_acoustic_mixture(room_params, signal_truth, signal_distr, None, distr_snr, noise_snr, is_anechoic=room_is_anechoic, out_dir=path_to_output_folder, target_length_in_s=target_length_in_s)
 
-    # Copy (single-channel) clean and distractor speech signals.
+    # Copy (single-channel) clean speech signal.
     signal_truth = torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0)
     torchaudio.save(os.path.join(path_to_output_folder, 'truth.flac'), signal_truth, SR)
-    # signal_distr = torch.from_numpy(signal_distr).to(torch.float32).unsqueeze(0)
-    # torchaudio.save(os.path.join(path_to_output_folder, 'distr.flac'), signal_distr, SR)  
 
     # Generate metadata text file.
     with open(os.path.join(path_to_output_folder, 'metadata.txt'), 'w') as f:

@@ -5,9 +5,6 @@ from tqdm import tqdm
 import time
 
 if __name__ == '__main__':
-
-    time.sleep(3600*2)
-    print("GO!")
     
     subsets = ['trn', 'tst', 'val']
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
