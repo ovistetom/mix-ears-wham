@@ -26,24 +26,27 @@ def random_head_position(room_dim, rdtw=0.125):
     z = random.uniform(1, 1.75)
     return np.array([x, y, z])
 
-def random_head_angle():
+def random_head_yaw():
     return random.uniform(0, 2*np.pi)
 
-def random_mouth_position(head_pos, head_ang):
+def random_head_pitch():
+    return random.uniform(-0.25*np.pi, 0.25*np.pi)
+
+def random_mouth_position(head_pos, head_yaw):
     hpx, hpy, hpz = head_pos
     rdx = random.uniform(-0.01, 0.01)
     rdy = random.uniform(0.11, 0.15)
     rdz = random.uniform(-0.04, -0.02)
-    x = hpx + rdx*np.cos(head_ang) - rdy*np.sin(head_ang)
-    y = hpy + rdx*np.sin(head_ang) + rdy*np.cos(head_ang)
+    x = hpx + rdx*np.cos(head_yaw) - rdy*np.sin(head_yaw)
+    y = hpy + rdx*np.sin(head_yaw) + rdy*np.cos(head_yaw)
     z = hpz + rdz
     return np.array([x, y, z])
 
-def random_ears_position(head_pos, head_ang):
+def random_ears_position(head_pos, head_yaw):
     hpx, hpy, hpz = head_pos
     rdx = random.uniform(0.08, 0.09)
-    ear_center_l = np.array([hpx - rdx*np.cos(head_ang), hpy - rdx*np.sin(head_ang), hpz])
-    ear_center_r = np.array([hpx + rdx*np.cos(head_ang), hpy + rdx*np.sin(head_ang), hpz])
+    ear_center_l = np.array([hpx - rdx*np.cos(head_yaw), hpy - rdx*np.sin(head_yaw), hpz])
+    ear_center_r = np.array([hpx + rdx*np.cos(head_yaw), hpy + rdx*np.sin(head_yaw), hpz])
     return np.array([ear_center_l, ear_center_r])
 
 def define_mics_position(ears_pos):
