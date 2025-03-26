@@ -58,10 +58,11 @@ def create_mixture_audio_sample(
     # Define acoustic scene.
     room_dim = utils.random_room_dimensions()
     head_pos = utils.random_head_position(room_dim)
-    head_ang = utils.random_head_angle()
-    ears_pos = utils.random_ears_position(head_pos, head_ang)
-    mics_pos = utils.define_mics_position(ears_pos)
-    mouth_pos = utils.random_mouth_position(head_pos,  head_ang)
+    head_yaw = utils.random_head_yaw()
+    head_pitch = utils.random_head_pitch()
+    head_roll = utils.random_head_roll()
+    mics_pos = utils.random_mics_position(head_pos, head_yaw, head_pitch, head_roll)
+    mouth_pos = utils.random_mouth_position(head_pos, head_yaw, head_pitch, head_roll)
     distr_pos = utils.random_distractor_position(room_dim, head_pos)
     distr_snr = utils.random_snr(-15, 0)
     noise_snr = utils.random_snr(-30, 0)
@@ -76,8 +77,6 @@ def create_mixture_audio_sample(
     room_params = {
         'room_dim': room_dim,
         'head_pos': head_pos,
-        'head_ang': head_ang,
-        'ears_pos': ears_pos,
         'mics_pos': mics_pos,
         'mouth_pos': mouth_pos,
         'distr_pos': distr_pos,
@@ -104,10 +103,7 @@ def create_mixture_audio_sample(
     noise_current_snr = 10*np.log10(power_clean/power_noise)
     signal_distr *= 10**((distr_current_snr - distr_snr)/20)
     signal_noise *= 10**((noise_current_snr - noise_snr)/20)
-
-    # Define file name suffix.
-    # filename_suffix = 
-
+    
     # Generate three mixtures.
     utils.generate_acoustic_mixture(
         room_params, 
@@ -171,8 +167,6 @@ def create_mixture_audio_sample(
         f.write(f"Noise SNR:\n\t{noise_snr}\n")
         f.write(f"Room dimensions:\n\t{room_dim}\n")
         f.write(f"Head position:\n\t{head_pos}\n")
-        f.write(f"Head angle:\n\t{head_ang}\n")
-        f.write(f"Ears position:\n\t{ears_pos}\n")
         f.write(f"Mics position:\n\t{mics_pos}\n")
         f.write(f"Mouth position:\n\t{mouth_pos}\n")
         f.write(f"Distractor position:\n\t{distr_pos}\n")

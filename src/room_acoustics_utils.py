@@ -32,32 +32,46 @@ def random_head_yaw():
 def random_head_pitch():
     return random.uniform(-0.25*np.pi, 0.25*np.pi)
 
-def random_mouth_position(head_pos, head_yaw):
-    hpx, hpy, hpz = head_pos
-    rdx = random.uniform(-0.01, 0.01)
-    rdy = random.uniform(0.11, 0.15)
+def random_head_roll():
+    return random.uniform(-0.125*np.pi, 0.125*np.pi)
+
+def random_mouth_position(head_pos, head_yaw=0, head_pitch=0, head_roll=0):
+    # Define initial mouth position relative to head center.
+    rdx = random.uniform(0.11, 0.15)
+    rdy = random.uniform(-0.01, 0.01)
     rdz = random.uniform(-0.04, -0.02)
-    x = hpx + rdx*np.cos(head_yaw) - rdy*np.sin(head_yaw)
-    y = hpy + rdx*np.sin(head_yaw) + rdy*np.cos(head_yaw)
-    z = hpz + rdz
-    return np.array([x, y, z])
+    mouth_pos = np.array([rdx, rdy, rdz])
+    # Define rotation matrix around vertical axis (yaw).
+    rot_yaw = np.array([[np.cos(head_yaw), -np.sin(head_yaw), 0.0], [np.sin(head_yaw), np.cos(head_yaw), 0.0], [0.0, 0.0, 1.0]])
+    # Define rotation matrix around lateral axis (pitch).
+    rot_pitch = np.array([[np.cos(head_pitch), 0.0, np.sin(head_pitch)], [0.0, 1.0, 0.0], [-np.sin(head_pitch), 0.0, np.cos(head_pitch)]])
+    # Define rotation matrix around horizontal axis (roll).
+    rot_roll = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(head_roll), -np.sin(head_roll)], [0.0, np.sin(head_roll), np.cos(head_roll)]])
+    # Rotate mouth position.
+    mouth_pos = np.einsum('ik, i -> k', rot_roll @ rot_pitch @ rot_yaw, mouth_pos)
+    # Translate position of mouth to head center.
+    mouth_pos = mouth_pos + head_pos
+    return mouth_pos
 
-def random_ears_position(head_pos, head_yaw):
-    hpx, hpy, hpz = head_pos
-    rdx = random.uniform(0.08, 0.09)
-    ear_center_l = np.array([hpx - rdx*np.cos(head_yaw), hpy - rdx*np.sin(head_yaw), hpz])
-    ear_center_r = np.array([hpx + rdx*np.cos(head_yaw), hpy + rdx*np.sin(head_yaw), hpz])
-    return np.array([ear_center_l, ear_center_r])
-
-def define_mics_position(ears_pos):
-    ear_center_l, ear_center_r = ears_pos
-    lex, ley, lez = ear_center_l
-    rex, rey, rez = ear_center_r
-    mic_l_1 = np.array([lex, ley, lez - 0.01])
-    mic_l_2 = np.array([lex, ley, lez + 0.01])    
-    mic_r_1 = np.array([rex, rey, rez - 0.01])
-    mic_r_2 = np.array([rex, rey, rez + 0.01])
-    return np.array([mic_l_1, mic_l_2, mic_r_1, mic_r_2])
+def random_mics_position(head_pos, head_yaw=0, head_pitch=0, head_roll=0):
+    rdy = random.uniform(0.08, 0.09)
+    # Define initial position of mics relative to head center.
+    mic_l_dn = np.array([0.0, + rdy, - 0.01])
+    mic_l_up = np.array([0.0, + rdy, + 0.01])    
+    mic_r_dn = np.array([0.0, - rdy, - 0.01])
+    mic_r_up = np.array([0.0, - rdy, + 0.01])
+    mics_pos = np.array([mic_l_dn, mic_l_up, mic_r_dn, mic_r_up])
+    # Define rotation matrix around vertical axis (yaw).
+    rot_yaw = np.array([[np.cos(head_yaw), -np.sin(head_yaw), 0.0], [np.sin(head_yaw), np.cos(head_yaw), 0.0], [0.0, 0.0, 1.0]])
+    # Define rotation matrix around lateral axis (pitch).
+    rot_pitch = np.array([[np.cos(head_pitch), 0.0, np.sin(head_pitch)], [0.0, 1.0, 0.0], [-np.sin(head_pitch), 0.0, np.cos(head_pitch)]])
+    # Define rotation matrix around horizontal axis (roll).
+    rot_roll = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(head_roll), -np.sin(head_roll)], [0.0, np.sin(head_roll), np.cos(head_roll)]])
+    # Rotate position of mics.
+    mics_pos = np.einsum('ik, mi -> mk', rot_roll @ rot_pitch @ rot_yaw, mics_pos)
+    # Translate position of mics to head center.
+    mics_pos = mics_pos + np.repeat(head_pos[None, ...], repeats=4, axis=0)
+    return mics_pos
 
 def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     rdx, rdy, _ = room_dim
@@ -94,7 +108,7 @@ def random_distractor_position(room_dim, head_pos, rdtw=0.125):
             y_max = (1-rdtw)*rdy
     y = random.uniform(y_min, y_max)
     
-    z = random.uniform(1, 1.75)
+    z = random.uniform(1, 2)
     return np.array([x, y, z])
 
 def random_snr(a=-5, b=5):
