@@ -46,11 +46,12 @@ def define_mixtr_file_name_suffix(
     return f"speaker{speaker_id}_distractor{distractor_id}_noiseType{noise_type}_distrSNR{str_distr_snr}_noiseSNR{str_noise_snr}_echo{not room_is_anechoic}"
 
 
-def create_mixture_audio_sample(
+def create_three_mixture_audio_samples(
         path_to_speaker_sample, 
         path_to_distractor_sample, 
         path_to_noise_sample, 
         path_to_output_folder='',
+        output_counter=0,
         room_is_anechoic=False,
         target_length_in_s=4.0,
         normalize_signals=False,
@@ -87,7 +88,7 @@ def create_mixture_audio_sample(
     # Load audio files (keep only first channel for speech signals).
     signal_truth = load_audio_file_and_resample(path_to_speaker_sample)[0]
     signal_distr = load_audio_file_and_resample(path_to_distractor_sample)[0]
-    signal_noise = load_audio_file_and_resample(path_to_noise_sample)
+    signal_noise = load_audio_file_and_resample(path_to_noise_sample)    
 
     # Normalize signals.
     if normalize_signals:
@@ -103,14 +104,17 @@ def create_mixture_audio_sample(
     noise_current_snr = 10*np.log10(power_clean/power_noise)
     signal_distr *= 10**((distr_current_snr - distr_snr)/20)
     signal_noise *= 10**((noise_current_snr - noise_snr)/20)
-    
-    # Generate three mixtures.
+
+    # Create output folder.
+    output_folder_c = os.path.join(path_to_output_folder, f'{output_counter:06}')
+    os.makedirs(output_folder_c, exist_ok=True)
+    # Generate first mixture.
     utils.generate_acoustic_mixture(
         room_params, 
         signal_truth, 
         signal_distr, 
         signal_noise, 
-        target_directory = path_to_output_folder, 
+        target_directory = output_folder_c,
         target_length_in_s = target_length_in_s,
         filename_suffix = define_mixtr_file_name_suffix(
             path_to_speaker_sample,
@@ -121,12 +125,19 @@ def create_mixture_audio_sample(
             room_is_anechoic,
         ),
     )
+    # Save clean signal.
+    torchaudio.save(os.path.join(output_folder_c, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
+
+    # Create output folder.
+    output_folder_c = os.path.join(path_to_output_folder, f'{output_counter+1:06}')
+    os.makedirs(output_folder_c, exist_ok=True)    
+    # Generate second mixture (without distractor).
     utils.generate_acoustic_mixture(
         room_params, 
         signal_truth, 
         None, 
         signal_noise, 
-        target_directory = path_to_output_folder, 
+        target_directory = output_folder_c, 
         target_length_in_s = target_length_in_s,
         filename_suffix = define_mixtr_file_name_suffix(
             path_to_speaker_sample,
@@ -137,12 +148,19 @@ def create_mixture_audio_sample(
             room_is_anechoic,
         ),
     )
+    # Save clean signal.
+    torchaudio.save(os.path.join(output_folder_c, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
+
+    # Create output folder.
+    output_folder_c = os.path.join(path_to_output_folder, f'{output_counter+2:06}')
+    os.makedirs(output_folder_c, exist_ok=True)
+    # Generate second mixture (without background noise).
     utils.generate_acoustic_mixture(
         room_params, 
         signal_truth, 
         signal_distr, 
         None, 
-        target_directory = path_to_output_folder, 
+        target_directory = output_folder_c, 
         target_length_in_s = target_length_in_s,
         filename_suffix = define_mixtr_file_name_suffix(
             path_to_speaker_sample,
@@ -153,24 +171,21 @@ def create_mixture_audio_sample(
             room_is_anechoic,
         ),
     )
+    # Save clean signal.
+    torchaudio.save(os.path.join(output_folder_c, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
 
-    # Copy (single-channel) clean speech signal.
-    signal_truth = torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0)
-    torchaudio.save(os.path.join(path_to_output_folder, 'truth.flac'), signal_truth, SR)
-
-    # Generate metadata text file.
-    with open(os.path.join(path_to_output_folder, 'metadata.txt'), 'w') as f:
-        f.write(f"Speaker sample:\n\t{path_to_speaker_sample}\n")
-        f.write(f"Distractor sample:\n\t{path_to_distractor_sample}\n")
-        f.write(f"Noise sample:\n\t{path_to_noise_sample}\n")
-        f.write(f"Distractor SNR:\n\t{distr_snr}\n")
-        f.write(f"Noise SNR:\n\t{noise_snr}\n")
-        f.write(f"Room dimensions:\n\t{room_dim}\n")
-        f.write(f"Head position:\n\t{head_pos}\n")
-        f.write(f"Mics position:\n\t{mics_pos}\n")
-        f.write(f"Mouth position:\n\t{mouth_pos}\n")
-        f.write(f"Distractor position:\n\t{distr_pos}\n")
-
+    # # Create metadata text file.
+    # with open(os.path.join(path_to_output_folder, 'metadata.txt'), 'w') as f:
+    #     f.write(f"Speaker sample:\n\t{path_to_speaker_sample}\n")
+    #     f.write(f"Distractor sample:\n\t{path_to_distractor_sample}\n")
+    #     f.write(f"Noise sample:\n\t{path_to_noise_sample}\n")
+    #     f.write(f"Distractor SNR:\n\t{distr_snr}\n")
+    #     f.write(f"Noise SNR:\n\t{noise_snr}\n")
+    #     f.write(f"Room dimensions:\n\t{room_dim}\n")
+    #     f.write(f"Head position:\n\t{head_pos}\n")
+    #     f.write(f"Mics position:\n\t{mics_pos}\n")
+    #     f.write(f"Mouth position:\n\t{mouth_pos}\n")
+    #     f.write(f"Distractor position:\n\t{distr_pos}\n")
 
 
 if __name__ == '__main__':
@@ -186,28 +201,34 @@ if __name__ == '__main__':
         vctk_list = parse_vctk(vctk_root, subset=subset)
         lisp_list = parse_lisp(lisp_root, subset=subset)
         dmnd_list = parse_dmnd(dmnd_root, subset=subset)
+        path_to_subset_folder = os.path.join(out_root, subset)
+        c = 0
 
-        for i, (file_path_truth, file_path_distr, file_path_noise) in enumerate(tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'")):
+        for (file_path_truth, file_path_distr, file_path_noise) in tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'"):
 
-            out_i = os.path.join(out_root, subset, f"{i:05}")
+
             # Define output path.
-            os.makedirs(os.path.join(out_i, 'echoTrue'), exist_ok=True)
-            os.makedirs(os.path.join(out_i, 'echoFalse'), exist_ok=True)
+            # os.makedirs(os.path.join(out_i, 'echoTrue'), exist_ok=True)
+            # os.makedirs(os.path.join(out_i, 'echoFalse'), exist_ok=True)
 
             # Create mixture.
-            create_mixture_audio_sample(file_path_truth,
-                                        file_path_distr, 
-                                        file_path_noise, 
-                                        room_is_anechoic=False, 
-                                        path_to_output_folder=os.path.join(out_i, 'echoTrue'),
-                                        target_length_in_s=4.0,
-                                        )
-            
-            create_mixture_audio_sample(file_path_truth,
-                                        file_path_distr, 
-                                        file_path_noise, 
-                                        room_is_anechoic=True, 
-                                        path_to_output_folder=os.path.join(out_i, 'echoFalse'),
-                                        target_length_in_s=4.0,
-                                        )
+            create_three_mixture_audio_samples(file_path_truth,
+                                               file_path_distr, 
+                                               file_path_noise, 
+                                               room_is_anechoic=False, 
+                                               target_length_in_s=4.0,
+                                               path_to_output_folder=path_to_subset_folder,
+                                               output_counter=c,
+            )
+            c = c + 3
+
+            create_three_mixture_audio_samples(file_path_truth,
+                                               file_path_distr, 
+                                               file_path_noise, 
+                                               room_is_anechoic=True, 
+                                               target_length_in_s=4.0,
+                                               path_to_output_folder=path_to_subset_folder,
+                                               output_counter=c,
+            )
+            c = c + 3
 
