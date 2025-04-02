@@ -146,7 +146,6 @@ def generate_acoustic_mixture(
         signal_noise, 
         target_length_in_s=None,
         target_directory='',
-        filename_suffix='',
 ):
     # Load room parameters.
     room_dim = room_parameters['room_dim']
@@ -166,7 +165,7 @@ def generate_acoustic_mixture(
         room.add_microphone_array(mics_pos.T)
         room.simulate()
         sim_signal_mixtr = room.mic_array.signals
-        path_to_mixtr_sample = os.path.join(target_directory, f"mixtr_{filename_suffix}.flac")     
+        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')     
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
@@ -179,7 +178,7 @@ def generate_acoustic_mixture(
         sim_signal_mixtr = room.mic_array.signals
         # Add spatially coherent noise.
         sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)
-        path_to_mixtr_sample = os.path.join(target_directory, f"mixtr_{filename_suffix}.flac")     
+        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')  
 
     # CASE #3: with distractor, with ambient noise.
     else:
@@ -193,7 +192,7 @@ def generate_acoustic_mixture(
         sim_signal_mixtr = room.mic_array.signals
         # Add spatially coherent noise.
         sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)        
-        path_to_mixtr_sample = os.path.join(target_directory, f"mixtr_{filename_suffix}.flac")
+        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')
 
     # Repeat to re-create clean speech signal in similar (non-reverberant) simulated conditons.
     room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
@@ -201,7 +200,7 @@ def generate_acoustic_mixture(
     room.add_microphone_array(mics_pos.T)
     room.simulate()
     sim_signal_clean = room.mic_array.signals
-    path_to_clean_sample = os.path.join(target_directory, f"clean_{filename_suffix}.flac")
+    path_to_clean_sample = os.path.join(target_directory, 'clean.flac')
     
     # Slice signal tail if necessary.    
     if target_length_in_s is not None:
@@ -210,7 +209,7 @@ def generate_acoustic_mixture(
 
     # Isolate noise (target speech reverberation + distractor speech + ambient noise).
     sim_signal_noise = sim_signal_mixtr - sim_signal_clean
-    path_to_noise_sample = os.path.join(target_directory, f"noise_{filename_suffix}.flac")   
+    path_to_noise_sample = os.path.join(target_directory, 'noise.flac')  
 
     # Normalize mixture signal; save normalization coefficient.
     sim_signal_norm = max(np.abs(sim_signal_clean).max(), np.abs(sim_signal_noise).max(), np.abs(sim_signal_mixtr).max())
