@@ -130,9 +130,9 @@ def create_three_mixture_audio_samples(
     # Create output folder.
     sample_name = define_sample_name(
         path_to_speaker_sample,
-        None,
+        path_to_distractor_sample,
         path_to_noise_sample,
-        distr_snr,
+        None,
         noise_snr,
         room_is_anechoic,
     )
@@ -154,9 +154,9 @@ def create_three_mixture_audio_samples(
     sample_name = define_sample_name(
         path_to_speaker_sample,
         path_to_distractor_sample,
-        None,
+        path_to_noise_sample,
         distr_snr,
-        noise_snr,
+        None,
         room_is_anechoic,
     )
     sample_path = os.path.join(path_to_output_folder, sample_name)
