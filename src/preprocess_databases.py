@@ -246,6 +246,56 @@ def process_dmnd(dmnd_root, repeats=1):
                         torchaudio.save(file_path_dst, segment_4c, sr)                
 
 
+def process_dmnd_without_environments(dmnd_root, repeats=1):
+    """Split the DEMAND database into training, validation and test subsets.
+    Load all WAV audio files in DEMAND, slice them in 4-channel segments of length 4s, and save the resulting audio files."""
+    
+    # Generate and shuffle the list of all noise files.
+    trn_subset = []
+    tst_subset = []
+    val_subset = []
+    for root_dir, dirs, files in os.walk(dmnd_root):
+        for f in files:
+            if f.endswith('.wav'):
+                if ('ch13' in f) or ('ch14' in f):
+                    tst_subset.append(os.path.join(root_dir,f))
+                elif ('ch15' in f) or ('ch16' in f):
+                    val_subset.append(os.path.join(root_dir,f))
+                else:
+                    trn_subset.append(os.path.join(root_dir,f))
+    # Parse and process each subset.
+    for subset, subset_name  in [(trn_subset, 'trn'), (tst_subset, 'tst'), (val_subset, 'val')]:    
+        for file_path in tqdm(subset, desc=f"Processing files in DMND/{subset_name}"):
+            envt_name = os.path.basename(os.path.dirname(file_path))
+            envt_path_dst = os.path.join(os.path.dirname(os.path.dirname(dmnd_root)), 'sliced_dmnd', subset_name, envt_name)
+            os.makedirs(envt_path_dst, exist_ok=True)
+            # Load audio file (keep only first channel).
+            audio, sr = torchaudio.load(file_path, channels_first=True)
+            audio = audio[0]
+            # Resample to 16kHz amd center around zero.
+            # resampler = tt.Resample(orig_freq=sr, new_freq=SR)
+            # audio = resampler(audio)
+            audio = center_audio_tensor(audio)
+            # Slice the audio segment to a multiple of 16s.
+            audio_len_in_s = audio.size(0) // SR
+            # Repeat several times to make database larger.
+            for r in range(repeats):
+                audio_sliced = pad_and_slice_audio_segment(audio, SR, target_len_in_s = audio_len_in_s - audio_len_in_s%16)
+                # Slice audio in 4s segments.
+                segments_4s = segment_audio_array(audio_sliced, segment_length_in_s=4, fade_length_in_s=0, sample_rate=sr)
+                segments_4s = segments_4s.reshape(segments_4s.size(0)//4, 4, -1)
+                segments_4s = list(segments_4s)
+                random.shuffle(segments_4s);
+                for i, segment_i in enumerate(segments_4s):
+                    # Fade and normalize.
+                    fader = tt.Fade(fade_in_len=512, fade_out_len=512, fade_shape='linear')
+                    segment_4c = fader(segment_i)
+                    segment_4c /= segment_4c.abs().max()
+                    # Save 4-channel segment.
+                    file_name_dst = f'{os.path.splitext(os.path.basename(file_path))[0]}_{r:02}{i:02}.flac'
+                    file_path_dst = os.path.join(envt_path_dst, file_name_dst)
+                    torchaudio.save(file_path_dst, segment_4c, sr)
+
 def process_wham(wham_root):
     """Split the WHAM database into training, validation and test subsets.
     Load all audio files in WHAM, combine them in 4-channel segments of length 4s, and save the resulting audio files."""
@@ -353,12 +403,12 @@ if __name__ == '__main__':
     # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
     # rearrange_lisp_subsets(lisp_root)
 
-    vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
-    lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
-    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND"
-    process_vctk(vctk_root)
-    process_lisp(lisp_root)
-    process_dmnd(dmnd_root,repeats=20)
+    # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/VCTK_092"
+    # lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/LibriSpeech"
+    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/DEMAND/16k"
+    # process_vctk(vctk_root)
+    # process_lisp(lisp_root)
+    process_dmnd_without_environments(dmnd_root,repeats=20)
 
     # subset = 'val'
     # vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"

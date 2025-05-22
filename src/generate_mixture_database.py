@@ -19,41 +19,57 @@ def load_audio_file_and_resample(file_path, new_sr=SR):
 
 
 def define_sample_name(
-        path_to_speaker_sample,
-        path_to_distractor_sample,
-        path_to_noise_sample,
-        distr_snr,
-        noise_snr,
-        room_is_anechoic,
+        path_to_speaker_sample: str,
+        path_to_distractor_sample: str,
+        path_to_noise_sample: str,
+        distr_snr: float | None,
+        noise_snr: float | None,
+        room_is_anechoic: bool,
 ):
     # Extract speaker ID.
     speaker_id = path_to_speaker_sample.split('/')[-2].upper()
 
     # Handle absence of distractor or noise.
-    if noise_snr is None:
-        str_noise_snr = "+INF"
-        noise_type = "NONE"
-    else:
-        str_noise_snr = f"{round(noise_snr):+}"
-        noise_type = path_to_noise_sample.split('/')[-2].upper()
-    if distr_snr is None:
-        str_distr_snr = "+INF"
-        distractor_id = "NONE"
-    else:
-        str_distr_snr = f"{round(distr_snr):+}"
-        distractor_id = path_to_distractor_sample.split('/')[-2].upper()
+    str_noise_snr = "+INF" if noise_snr is None else f"{round(noise_snr):+}"
+    noise_type = path_to_noise_sample.split('/')[-2].upper()
+    str_distr_snr = "+INF" if distr_snr is None else f"{round(distr_snr):+}"
+    distractor_id = path_to_distractor_sample.split('/')[-2].upper()
 
-    return f"speaker{speaker_id}_distractor{distractor_id}_noiseType{noise_type}_distrSNR{str_distr_snr}_noiseSNR{str_noise_snr}_echo{str(not room_is_anechoic).upper()}"
+    return f"speaker{speaker_id}_distr{distractor_id}_noise{noise_type}_distrSNR{str_distr_snr}_noiseSNR{str_noise_snr}_echo{str(not room_is_anechoic).upper()}"
+
+
+def create_metadata_text_file(
+        path_to_metadata_text_file,
+        path_to_speaker_sample: str,
+        path_to_distractor_sample: str,
+        path_to_noise_sample: str,
+        distr_snr: float | None,
+        noise_snr: float | None,
+        room_is_anechoic: bool,
+):      
+    with open(path_to_metadata_text_file, 'w') as f:
+        speaker_id = path_to_speaker_sample.split('/')[-2].upper()
+        noise_type = path_to_noise_sample.split('/')[-2].upper()
+        distractor_id = path_to_distractor_sample.split('/')[-2].upper()
+        str_noise_snr = "+INF" if noise_snr is None else f"{round(noise_snr):+}"
+        str_distr_snr = "+INF" if distr_snr is None else f"{round(distr_snr):+}"
+        f.write(f"speak,{speaker_id}\n")
+        f.write(f"distr,{distractor_id}\n")
+        f.write(f"noise,{noise_type}\n")
+        f.write(f"distrSNR,{str_distr_snr}\n")
+        f.write(f"noiseSNR,{str_noise_snr}\n")
+        f.write(f"echo,{str(not room_is_anechoic).upper()}\n")
 
 
 def create_three_mixture_audio_samples(
-        path_to_speaker_sample, 
-        path_to_distractor_sample, 
-        path_to_noise_sample, 
-        path_to_output_folder='',
-        room_is_anechoic=False,
-        target_length_in_s=4.0,
-        normalize_signals=False,
+        path_to_speaker_sample: str, 
+        path_to_distractor_sample: str, 
+        path_to_noise_sample: str, 
+        path_to_output_folder: str = '',
+        room_is_anechoic: bool = False,
+        target_length_in_s: float = 4.0,
+        sample_id: int = 0,
+        normalize_signals: bool = False,
 ):
     # Define acoustic scene.
     room_dim = utils.random_room_dimensions()
@@ -82,7 +98,7 @@ def create_three_mixture_audio_samples(
         'distr_pos': distr_pos,
         'e_absorption': e_absorption,
         'max_order': max_order,
-        }
+    }
     
     # Load audio files (keep only first channel for speech signals).
     signal_truth = load_audio_file_and_resample(path_to_speaker_sample)[0]
@@ -105,7 +121,12 @@ def create_three_mixture_audio_samples(
     signal_noise *= 10**((noise_current_snr - noise_snr)/20)
 
     # Create output folder.
-    sample_name = define_sample_name(
+    sample_name = f"{sample_id:06d}"
+    sample_path = os.path.join(path_to_output_folder, sample_name)
+    os.makedirs(sample_path, exist_ok=True)
+    # Create metadata text file.
+    create_metadata_text_file(
+        os.path.join(sample_path, 'metadata.txt'),
         path_to_speaker_sample,
         path_to_distractor_sample,
         path_to_noise_sample,
@@ -113,8 +134,6 @@ def create_three_mixture_audio_samples(
         noise_snr,
         room_is_anechoic,
     )
-    sample_path = os.path.join(path_to_output_folder, sample_name)
-    os.makedirs(sample_path, exist_ok=True)
     # Generate first mixture.
     utils.generate_acoustic_mixture(
         room_params, 
@@ -128,16 +147,19 @@ def create_three_mixture_audio_samples(
     torchaudio.save(os.path.join(sample_path, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
 
     # Create output folder.
-    sample_name = define_sample_name(
+    sample_name = f"{sample_id+1:06d}"
+    sample_path = os.path.join(path_to_output_folder, sample_name)
+    os.makedirs(sample_path, exist_ok=True)
+    # Create metadata text file.
+    create_metadata_text_file(
+        os.path.join(sample_path, 'metadata.txt'),
         path_to_speaker_sample,
         path_to_distractor_sample,
         path_to_noise_sample,
         None,
         noise_snr,
         room_is_anechoic,
-    )
-    sample_path = os.path.join(path_to_output_folder, sample_name)
-    os.makedirs(sample_path, exist_ok=True)    
+    )    
     # Generate second mixture (without distractor).
     utils.generate_acoustic_mixture(
         room_params, 
@@ -151,17 +173,20 @@ def create_three_mixture_audio_samples(
     torchaudio.save(os.path.join(sample_path, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
 
     # Create output folder.
-    sample_name = define_sample_name(
+    sample_name = f"{sample_id+2:06d}"
+    sample_path = os.path.join(path_to_output_folder, sample_name)
+    os.makedirs(sample_path, exist_ok=True)
+    # Create metadata text file.
+    create_metadata_text_file(
+        os.path.join(sample_path, 'metadata.txt'),
         path_to_speaker_sample,
         path_to_distractor_sample,
         path_to_noise_sample,
         distr_snr,
         None,
         room_is_anechoic,
-    )
-    sample_path = os.path.join(path_to_output_folder, sample_name)
-    os.makedirs(sample_path, exist_ok=True)
-    # Generate second mixture (without background noise).
+    )    
+    # Generate third mixture (without background noise).
     utils.generate_acoustic_mixture(
         room_params, 
         signal_truth, 
@@ -173,27 +198,14 @@ def create_three_mixture_audio_samples(
     # Save clean signal.
     torchaudio.save(os.path.join(sample_path, 'truth.flac'), torch.from_numpy(signal_truth).to(torch.float32).unsqueeze(0), SR)
 
-    # # Create metadata text file.
-    # with open(os.path.join(path_to_output_folder, 'metadata.txt'), 'w') as f:
-    #     f.write(f"Speaker sample:\n\t{path_to_speaker_sample}\n")
-    #     f.write(f"Distractor sample:\n\t{path_to_distractor_sample}\n")
-    #     f.write(f"Noise sample:\n\t{path_to_noise_sample}\n")
-    #     f.write(f"Distractor SNR:\n\t{distr_snr}\n")
-    #     f.write(f"Noise SNR:\n\t{noise_snr}\n")
-    #     f.write(f"Room dimensions:\n\t{room_dim}\n")
-    #     f.write(f"Head position:\n\t{head_pos}\n")
-    #     f.write(f"Mics position:\n\t{mics_pos}\n")
-    #     f.write(f"Mouth position:\n\t{mouth_pos}\n")
-    #     f.write(f"Distractor position:\n\t{distr_pos}\n")
-
 
 if __name__ == '__main__':
     
     subsets = ['trn', 'tst', 'val']
     vctk_root = r"/home/ovistetom/Documents/Databases_Local/VCTK/sliced_vctk"
     lisp_root = r"/home/ovistetom/Documents/Databases_Local/LISP/sliced_lisp"
-    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd"
-    out_root = os.path.join(r"/home/ovistetom/Documents/Databases_Local/MIXTURES")
+    dmnd_root = r"/home/ovistetom/Documents/Databases_Local/DMND/sliced_dmnd_discriminated"
+    out_root = os.path.join(r"/home/ovistetom/Documents/Databases_Local/MIXTURES/discriminated")
 
     for subset in subsets:
         # Load speech and noise databases.
@@ -201,28 +213,27 @@ if __name__ == '__main__':
         lisp_list = parse_lisp(lisp_root, subset=subset)
         dmnd_list = parse_dmnd(dmnd_root, subset=subset)
         path_to_subset_folder = os.path.join(out_root, subset)
-
-        for (file_path_truth, file_path_distr, file_path_noise) in tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'"):
-
-
-            # Define output path.
-            # os.makedirs(os.path.join(out_i, 'echoTrue'), exist_ok=True)
-            # os.makedirs(os.path.join(out_i, 'echoFalse'), exist_ok=True)
+        c = 0
+        for file_path_truth, file_path_distr, file_path_noise in tqdm(zip(vctk_list, lisp_list, dmnd_list), total=len(vctk_list), desc=f"Processing subset '{subset}'"):
 
             # Create mixture.
-            create_three_mixture_audio_samples(file_path_truth,
-                                               file_path_distr, 
-                                               file_path_noise, 
-                                               room_is_anechoic=False, 
-                                               target_length_in_s=4.0,
-                                               path_to_output_folder=path_to_subset_folder,
+            create_three_mixture_audio_samples(
+                file_path_truth,
+                file_path_distr, 
+                file_path_noise, 
+                room_is_anechoic=False, 
+                target_length_in_s=4.0,
+                path_to_output_folder=path_to_subset_folder,
+                sample_id=c,
             )
-
-            create_three_mixture_audio_samples(file_path_truth,
-                                               file_path_distr, 
-                                               file_path_noise, 
-                                               room_is_anechoic=True, 
-                                               target_length_in_s=4.0,
-                                               path_to_output_folder=path_to_subset_folder,
+            c += 3
+            create_three_mixture_audio_samples(
+                file_path_truth,
+                file_path_distr, 
+                file_path_noise, 
+                room_is_anechoic=True, 
+                target_length_in_s=4.0,
+                path_to_output_folder=path_to_subset_folder,
+                sample_id=c,
             )
-
+            c += 3

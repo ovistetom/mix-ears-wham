@@ -35,7 +35,7 @@ def random_head_pitch():
 def random_head_roll():
     return random.uniform(-0.125*np.pi, 0.125*np.pi)
 
-def random_mouth_position(head_pos, head_yaw=0, head_pitch=0, head_roll=0):
+def random_mouth_position(head_pos, head_yaw=0.0, head_pitch=0.0, head_roll=0.0):
     # Define initial mouth position relative to head center.
     rdx = random.uniform(0.11, 0.15)
     rdy = random.uniform(-0.01, 0.01)
@@ -53,7 +53,7 @@ def random_mouth_position(head_pos, head_yaw=0, head_pitch=0, head_roll=0):
     mouth_pos = mouth_pos + head_pos
     return mouth_pos
 
-def random_mics_position(head_pos, head_yaw=0, head_pitch=0, head_roll=0):
+def random_mics_position(head_pos, head_yaw=0.0, head_pitch=0.0, head_roll=0.0):
     rdy = random.uniform(0.08, 0.09)
     # Define initial position of mics relative to head center.
     mic_l_dn = np.array([0.0, + rdy, - 0.01])
@@ -159,23 +159,23 @@ def generate_acoustic_mixture(
     if signal_noise is None:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
-        room.add_source(distr_pos, signal=signal_distr, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0)
+        room.add_source(distr_pos, signal=signal_distr, delay=0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        sim_signal_mixtr = room.mic_array.signals
+        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
         path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')     
 
     # CASE #2: without distractor, with ambient noise.
     elif signal_distr is None:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        sim_signal_mixtr = room.mic_array.signals
+        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
         # Add spatially coherent noise.
         sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)
         path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')  
@@ -184,22 +184,22 @@ def generate_acoustic_mixture(
     else:
         # Create room and add necessary sources.
         room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
-        room.add_source(distr_pos, signal=signal_distr, delay=0.0)
+        room.add_source(mouth_pos, signal=signal_truth, delay=0)
+        room.add_source(distr_pos, signal=signal_distr, delay=0)
         # Simulate acoustic scene.
         room.add_microphone_array(mics_pos.T)
         room.simulate()
-        sim_signal_mixtr = room.mic_array.signals
+        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
         # Add spatially coherent noise.
         sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)        
         path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')
 
     # Repeat to re-create clean speech signal in similar (non-reverberant) simulated conditons.
     room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
-    room.add_source(mouth_pos, signal=signal_truth, delay=0.0)
+    room.add_source(mouth_pos, signal=signal_truth, delay=0)
     room.add_microphone_array(mics_pos.T)
     room.simulate()
-    sim_signal_clean = room.mic_array.signals
+    sim_signal_clean = room.mic_array.signals if room.mic_array is not None else np.array([])
     path_to_clean_sample = os.path.join(target_directory, 'clean.flac')
     
     # Slice signal tail if necessary.    
