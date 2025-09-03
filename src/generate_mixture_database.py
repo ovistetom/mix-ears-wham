@@ -4,8 +4,8 @@ import torch
 import torchaudio
 import pyroomacoustics as pra
 from tqdm import tqdm
-import room_acoustics_utils as utils
-from preprocess_databases import parse_vctk, parse_lisp, parse_dmnd
+import roomacoustics.utils as utils
+from old.preprocess_databases import parse_vctk, parse_lisp, parse_dmnd
 
 
 SR = 16000

@@ -11,6 +11,7 @@ import os
 
 SR = 16000
 NFFT = 1024
+NUM_CHANNELS = 4
 
 
 def random_room_dimensions():
@@ -70,7 +71,7 @@ def random_mics_position(head_pos, head_yaw=0.0, head_pitch=0.0, head_roll=0.0):
     # Rotate position of mics.
     mics_pos = np.einsum('ik, mi -> mk', rot_roll @ rot_pitch @ rot_yaw, mics_pos)
     # Translate position of mics to head center.
-    mics_pos = mics_pos + np.repeat(head_pos[None, ...], repeats=4, axis=0)
+    mics_pos = mics_pos + np.repeat(head_pos[None, ...], repeats=NUM_CHANNELS, axis=0)
     return mics_pos
 
 def random_distractor_position(room_dim, head_pos, rdtw=0.125):
@@ -114,13 +115,13 @@ def random_distractor_position(room_dim, head_pos, rdtw=0.125):
 def random_snr(a=-5, b=5):
     return random.uniform(a, b)
 
-def random_rt60(room_dim):
+def random_rt60(room_dim, max_rt60=2.0):
     v = np.prod(room_dim)
     s = 2 * np.sum([l1 * l2 for l1, l2 in itertools.combinations(room_dim, 2)])
     c = pra.parameters._constants_default['c']
     sc = 24
     a = v*sc*np.log(10)/(c*s)
-    return random.uniform(a, 1.0)
+    return random.uniform(a, max_rt60)
 
 
 def add_noise(signal_mixtr, signal_noise, mics_pos, sr=SR, nfft=NFFT):
