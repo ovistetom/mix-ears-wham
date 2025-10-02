@@ -17,14 +17,15 @@ NUM_CHANNELS = 4
 def random_room_dimensions():
     x = random.uniform(4, 10)
     y = random.uniform(4, 10)
-    z = random.uniform(2.5, 5)
+    z = random.uniform(3, 5)
     return np.array([x, y, z])
 
-def random_head_position(room_dim, rdtw=0.125):
+def random_head_position(room_dim, mdtw=1):
     rdx, rdy, _ = room_dim
-    x = random.uniform(rdtw*rdx, (1-rdtw)*rdx)
-    y = random.uniform(rdtw*rdy, (1-rdtw)*rdy)
-    z = random.uniform(1, 1.75)
+    # `mdtw`: minimum distance to the wall.
+    x = random.uniform(mdtw, rdx - mdtw)
+    y = random.uniform(mdtw, rdy - mdtw)
+    z = random.uniform(1, 2)
     return np.array([x, y, z])
 
 def random_head_yaw():
@@ -74,7 +75,7 @@ def random_mics_position(head_pos, head_yaw=0.0, head_pitch=0.0, head_roll=0.0):
     mics_pos = mics_pos + np.repeat(head_pos[None, ...], repeats=NUM_CHANNELS, axis=0)
     return mics_pos
 
-def random_distractor_position(room_dim, head_pos, rdtw=0.125):
+def random_distractor_position(room_dim, head_pos, mdtw=1):
     rdx, rdy, _ = room_dim
     hpx, hpy, _ = head_pos
     angle = random.uniform(0, 2*np.pi)
@@ -82,35 +83,48 @@ def random_distractor_position(room_dim, head_pos, rdtw=0.125):
     dx = np.cos(angle)*1
     if dx > 0:
         x_min = hpx + dx
-        x_max = (1-rdtw)*rdx
+        x_max = rdx - mdtw # (1-rdtw)*rdx
         if x_min > x_max:
-            x_min = rdtw*rdx
+            x_min = mdtw # rdtw*rdx
             x_max = hpx - dx     
     else:
-        x_min = rdtw*rdx
+        x_min = mdtw # rdtw*rdx
         x_max = hpx + dx
         if x_min > x_max:
             x_min = hpx - dx
-            x_max = (1-rdtw)*rdx
+            x_max = rdx - mdtw # (1-rdtw)*rdx
     x = random.uniform(x_min, x_max)
 
     dy = np.sin(angle)*1
     if dy > 0:
         y_min = hpy + dy
-        y_max = (1-rdtw)*rdy
+        y_max = rdy - mdtw # (1-rdtw)*rdy
         if y_min > y_max:
-            y_min = rdtw*rdy
+            y_min = mdtw # rdtw*rdy
             y_max = hpy - dy
     else:
-        y_min = rdtw*rdy
+        y_min = mdtw # rdtw*rdy
         y_max = hpy + dy
         if y_min > y_max:
             y_min = hpy - dy
-            y_max = (1-rdtw)*rdy
+            y_max = rdy - mdtw # (1-rdtw)*rdy
     y = random.uniform(y_min, y_max)
     
     z = random.uniform(1, 2)
     return np.array([x, y, z])
+
+def random_noise_source_position(room_dim, head_pos, num_sources=16):
+    rdx, rdy, rdz = room_dim
+    hpx, hpy, hpz = head_pos
+    list_positions = []
+    while len(list_positions) < num_sources:
+        x = random.uniform(0.5, rdx-0.5)
+        y = random.uniform(0.5, rdy-0.5)
+        z = random.uniform(0.5, rdz-0.5)
+        distance = np.sqrt((x-hpx)**2 + (y-hpy)**2 + (z-hpz)**2)
+        if distance > 1.0:
+            list_positions.append(np.array([x, y, z]))
+    return list_positions
 
 def random_snr(a=-5, b=5):
     return random.uniform(a, b)
@@ -123,105 +137,19 @@ def random_rt60(room_dim, max_rt60=2.0):
     a = v*sc*np.log(10)/(c*s)
     return random.uniform(a, max_rt60)
 
+def pad_signal(signal, pad_right=0):
+    return np.pad(signal, pad_width=((0, 0), (0, pad_right)), mode='constant', constant_values=0.0)
 
-def add_noise(signal_mixtr, signal_noise, mics_pos, sr=SR, nfft=NFFT):
+def pad_and_adjust(signal, target_length):
+    padding_length = target_length - signal.shape[0]
+    pad_left = np.random.randint(low=0, high=padding_length)
+    pad_right = padding_length - pad_left
+    return np.pad(signal, pad_width=(pad_left, pad_right), mode='constant', constant_values=0.0)
+
+def force_noise_coherence(signal_noise, mics_pos, sr=SR, nfft=NFFT):
     # Define target spatial coherence.
     params = anf.CoherenceMatrix.Parameters(mic_positions=mics_pos, sc_type='spherical', sample_frequency=sr, nfft=nfft)
     # Generate output noise signals with the desired spatial coherence.
     signal_noise_coherent, _, _ = anf.generate_signals(signal_noise, params, decomposition='evd', processing='balance+smooth')
-    if signal_mixtr.shape[1] != signal_noise_coherent.shape[1]:
-        # Determine the maximum size along the second dimension.
-        max_size = max(signal_mixtr.shape[1], signal_noise_coherent.shape[1])
-        # Pad both arrays to the maximum size.
-        signal_mixtr_padded = np.pad(signal_mixtr, ((0, 0), (0, max_size - signal_mixtr.shape[1])), mode='constant')
-        signal_noise_padded = np.pad(signal_noise_coherent, ((0, 0), (0, max_size - signal_noise.shape[1])), mode='constant')
-        return signal_mixtr_padded + signal_noise_padded
-    else:
-        return signal_mixtr + signal_noise_coherent
+    return signal_noise_coherent
 
-
-def generate_acoustic_mixture(
-        room_parameters, 
-        signal_truth, 
-        signal_distr, 
-        signal_noise, 
-        target_length_in_s=None,
-        target_directory='',
-):
-    # Load room parameters.
-    room_dim = room_parameters['room_dim']
-    mouth_pos = room_parameters['mouth_pos']
-    distr_pos = room_parameters['distr_pos']
-    mics_pos = room_parameters['mics_pos']
-    e_absorption = room_parameters['e_absorption']
-    max_order = room_parameters['max_order']
-
-    # CASE #1: with distractor, without ambient noise.
-    if signal_noise is None:
-        # Create room and add necessary sources.
-        room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0)
-        room.add_source(distr_pos, signal=signal_distr, delay=0)
-        # Simulate acoustic scene.
-        room.add_microphone_array(mics_pos.T)
-        room.simulate()
-        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
-        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')     
-
-    # CASE #2: without distractor, with ambient noise.
-    elif signal_distr is None:
-        # Create room and add necessary sources.
-        room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0)
-        # Simulate acoustic scene.
-        room.add_microphone_array(mics_pos.T)
-        room.simulate()
-        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
-        # Add spatially coherent noise.
-        sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)
-        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')  
-
-    # CASE #3: with distractor, with ambient noise.
-    else:
-        # Create room and add necessary sources.
-        room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(e_absorption), max_order=max_order)
-        room.add_source(mouth_pos, signal=signal_truth, delay=0)
-        room.add_source(distr_pos, signal=signal_distr, delay=0)
-        # Simulate acoustic scene.
-        room.add_microphone_array(mics_pos.T)
-        room.simulate()
-        sim_signal_mixtr = room.mic_array.signals if room.mic_array is not None else np.array([])
-        # Add spatially coherent noise.
-        sim_signal_mixtr = add_noise(sim_signal_mixtr, signal_noise, mics_pos)        
-        path_to_mixtr_sample = os.path.join(target_directory, 'mixtr.flac')
-
-    # Repeat to re-create clean speech signal in similar (non-reverberant) simulated conditons.
-    room = pra.ShoeBox(room_dim, fs=SR, materials=pra.Material(1.0), max_order=0)
-    room.add_source(mouth_pos, signal=signal_truth, delay=0)
-    room.add_microphone_array(mics_pos.T)
-    room.simulate()
-    sim_signal_clean = room.mic_array.signals if room.mic_array is not None else np.array([])
-    path_to_clean_sample = os.path.join(target_directory, 'clean.flac')
-    
-    # Slice signal tail if necessary.    
-    if target_length_in_s is not None:
-        sim_signal_clean = sim_signal_clean[:, :int(SR*target_length_in_s)]
-        sim_signal_mixtr = sim_signal_mixtr[:, :int(SR*target_length_in_s)]   
-
-    # Isolate noise (target speech reverberation + distractor speech + ambient noise).
-    sim_signal_noise = sim_signal_mixtr - sim_signal_clean
-    path_to_noise_sample = os.path.join(target_directory, 'noise.flac')  
-
-    # Normalize mixture signal; save normalization coefficient.
-    sim_signal_norm = max(np.abs(sim_signal_clean).max(), np.abs(sim_signal_noise).max(), np.abs(sim_signal_mixtr).max())
-    sim_signal_clean /= sim_signal_norm
-    sim_signal_noise /= sim_signal_norm
-    sim_signal_mixtr /= sim_signal_norm
-
-    # Save signals.        
-    sim_signal_clean = torch.from_numpy(sim_signal_clean).to(torch.float32)
-    sim_signal_noise = torch.from_numpy(sim_signal_noise).to(torch.float32)
-    sim_signal_mixtr = torch.from_numpy(sim_signal_mixtr).to(torch.float32)
-    torchaudio.save(path_to_clean_sample, sim_signal_clean, SR)
-    torchaudio.save(path_to_noise_sample, sim_signal_noise, SR)
-    torchaudio.save(path_to_mixtr_sample, sim_signal_mixtr, SR)
