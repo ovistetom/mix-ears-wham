@@ -15,9 +15,9 @@ NUM_CHANNELS = 4
 
 
 def random_room_dimensions():
-    x = random.uniform(4, 10)
-    y = random.uniform(4, 10)
-    z = random.uniform(3, 5)
+    x = random.randint(4, 10)
+    y = random.randint(4, 10)
+    z = random.randint(3, 5)
     return np.array([x, y, z])
 
 def random_head_position(room_dim, mdtw=1):
@@ -113,14 +113,14 @@ def random_distractor_position(room_dim, head_pos, mdtw=1):
     z = random.uniform(1, 2)
     return np.array([x, y, z])
 
-def random_noise_source_position(room_dim, head_pos, num_sources=16):
+def random_noise_source_position(room_dim, head_pos, mdtw=0.25, num_sources=16):
     rdx, rdy, rdz = room_dim
     hpx, hpy, hpz = head_pos
     list_positions = []
     while len(list_positions) < num_sources:
-        x = random.uniform(0.5, rdx-0.5)
-        y = random.uniform(0.5, rdy-0.5)
-        z = random.uniform(0.5, rdz-0.5)
+        x = random.uniform(mdtw, rdx-mdtw)
+        y = random.uniform(mdtw, rdy-mdtw)
+        z = random.uniform(mdtw, rdz-mdtw)
         distance = np.sqrt((x-hpx)**2 + (y-hpy)**2 + (z-hpz)**2)
         if distance > 1.0:
             list_positions.append(np.array([x, y, z]))
