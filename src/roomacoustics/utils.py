@@ -62,7 +62,7 @@ def random_mics_position(head_pos, head_yaw=0.0, head_pitch=0.0, head_roll=0.0):
     mic_l_up = np.array([0.0, + rdy, + 0.01])    
     mic_r_dn = np.array([0.0, - rdy, - 0.01])
     mic_r_up = np.array([0.0, - rdy, + 0.01])
-    mics_pos = np.array([mic_l_dn, mic_l_up, mic_r_dn, mic_r_up])
+    mics_pos = np.array([mic_l_up, mic_r_up, mic_l_dn, mic_r_dn])
     # Define rotation matrix around vertical axis (yaw).
     rot_yaw = np.array([[np.cos(head_yaw), -np.sin(head_yaw), 0.0], [np.sin(head_yaw), np.cos(head_yaw), 0.0], [0.0, 0.0, 1.0]])
     # Define rotation matrix around lateral axis (pitch).
