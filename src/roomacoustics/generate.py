@@ -35,7 +35,7 @@ def generate_acoustic_mixture(
     room.simulate()
     signal_x = room.mic_array.signals if room.mic_array is not None else np.array([])
     power_x = np.pow(signal_x, 2.0).sum()
-    path_to_x = os.path.join(target_directory, f'x_target_speech.{file_extension}')
+    path_to_x = os.path.join(target_directory, f'target_speech.{file_extension}')
     
     # Create multi-channel reverberant clean-speech signal.
     room = pra.ShoeBox(room_dim, fs=sample_rate, materials=pra.Material(e_absorption), max_order=max_order)
@@ -53,9 +53,9 @@ def generate_acoustic_mixture(
     room.simulate()
     signal_d = room.mic_array.signals if room.mic_array is not None else np.array([])
     power_d = np.pow(signal_d, 2.0).sum()
-    path_to_d = os.path.join(target_directory, f'd_interf_speech.{file_extension}')
+    path_to_d = os.path.join(target_directory, f'interf_speech.{file_extension}')
     # Determine SIR.
-    initial_sir = power_r / power_d
+    initial_sir = power_x / power_d
     signal_d = np.sqrt((initial_sir / desired_sir)).item() * signal_d
     
     # Create multi-channel reverberant distractor-speech signal.
@@ -67,9 +67,9 @@ def generate_acoustic_mixture(
     signal_v = room.mic_array.signals if room.mic_array is not None else np.array([])
     power_v = np.pow(signal_v, 2.0).sum()
     # Determine SNR.
-    initial_snr = power_r / power_v
+    initial_snr = power_x / power_v
     signal_v = np.sqrt((initial_snr / desired_snr)).item() * signal_v
-    path_to_v = os.path.join(target_directory, f'v_ambient_noise.{file_extension}')
+    path_to_v = os.path.join(target_directory, f'ambient_noise.{file_extension}')
     
     # Set target length.
     if target_length is not None:
@@ -84,13 +84,13 @@ def generate_acoustic_mixture(
 
     # Create multi-channel noisy mixture signal.
     signal_y = signal_r + signal_d + signal_v
-    path_to_y = os.path.join(target_directory, f'y_noisy_mixture.{file_extension}')
+    path_to_y = os.path.join(target_directory, f'noisy_mixture.{file_extension}')
     # Define reverb-only signal.
     signal_r = signal_r - signal_x
-    path_to_r = os.path.join(target_directory, f'r_reverb_speech.{file_extension}')
+    path_to_r = os.path.join(target_directory, f'reverb_speech.{file_extension}')
     # Define overall-noise signal.
     signal_n = signal_r + signal_d + signal_v
-    path_to_n = os.path.join(target_directory, f'n_overall_noise.{file_extension}')
+    path_to_n = os.path.join(target_directory, f'overall_noise.{file_extension}')
 
     # Normalize signals w.r.t. maximum; save normalization coefficient.
     signal_max = np.abs(signal_y).max()
@@ -122,8 +122,8 @@ def create_acoustic_scene(
     mics_pos = utils.random_mics_position(head_pos, head_yaw, head_pitch, head_roll)
     mouth_pos = utils.random_mouth_position(head_pos, head_yaw, head_pitch, head_roll)
     distr_pos = [utils.random_distractor_position(room_dim, head_pos) for _ in path_to_stem_d]
-    noise_pos = utils.random_noise_source_position(room_dim, head_pos,num_sources=48)
-    desired_sir_db = utils.random_snr(-6, 6)
+    noise_pos = utils.random_noise_source_position(room_dim, head_pos, num_sources=48)
+    desired_sir_db = utils.random_snr(0, 6)
     desired_sir = 10**(0.1*desired_sir_db)
     desired_snr_db = utils.random_snr(-6, 6)
     desired_snr = 10**(0.1*desired_snr_db)
@@ -181,10 +181,10 @@ def write_metadata(
     target_directory: str,
 ):
     with open(os.path.join(target_directory, 'metadata.txt'), 'w') as f:
-        f.write(f"SPEAKER,{os.path.basename(path_to_stem_x)[:4].upper()}\n")
-        f.write(f"NOISE,{os.path.basename(path_to_stem_v)}\n")
-        f.write(f"SIR,{int(round(desired_sir, 0)):+}\n")
-        f.write(f"SNR,{int(round(desired_snr, 0)):+}\n")
+        f.write(f"SPEAKER_ID,{os.path.basename(path_to_stem_x)[:4].upper()}\n")
+        f.write(f"NOISE_ID,{os.path.splitext(os.path.basename(path_to_stem_v))[0]}\n")
+        f.write(f"SIR_DB,{int(round(desired_sir, 0)):+}\n")
+        f.write(f"SNR_DB,{int(round(desired_snr, 0)):+}\n")
         f.write(f"RT60,{round(rt60, 1)}\n")
 
 
@@ -219,8 +219,8 @@ def parse_database(path_database, num_samples=None):
 
 
 if __name__ == '__main__':
-
-    subsets = ['val']#['trn', 'tst', 'val']
+    plt.switch_backend('agg')
+    subsets = ['tst', 'trn', 'val']
     path_speech = r"/home/ovistetom/Documents/data/EARS/preprocessed"
     path_noise = r"/home/ovistetom/Documents/data/WHAM/preprocessed"
     path_output = r"/home/ovistetom/Documents/data/MIX-EARS-WHAM/reference"
@@ -260,7 +260,7 @@ if __name__ == '__main__':
                 path_to_stem_d=path_sample_distr,
                 path_to_stem_v=path_sample_noise,
                 target_directory=path_sample,
-                plot=True,
+                plot=(subset=='tst'),
             )
 
             num_sample += 1

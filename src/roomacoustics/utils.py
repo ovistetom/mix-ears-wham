@@ -129,7 +129,7 @@ def random_noise_source_position(room_dim, head_pos, mdtw=0.25, num_sources=16):
 def random_snr(a=-5, b=5):
     return random.uniform(a, b)
 
-def random_rt60(room_dim, max_rt60=2.0):
+def random_rt60(room_dim, max_rt60=1.0):
     v = np.prod(room_dim)
     s = 2 * np.sum([l1 * l2 for l1, l2 in itertools.combinations(room_dim, 2)])
     c = pra.parameters._constants_default['c']
