@@ -1,4 +1,2 @@
 .conda
 old
-src/preprocessing/__pycache__
-src/roomacoustics/__pycache__

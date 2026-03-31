@@ -1,9 +1,9 @@
 import os
-import torch
-import torchaudio
 import tqdm
 import random
 import librosa
+import torch
+import torchaudio
 import numpy as np
 import matplotlib.pyplot as plt
 import pyroomacoustics as pra
@@ -23,11 +23,12 @@ def generate_acoustic_mixture(
         mics_pos: np.ndarray,
         e_absorption: float,
         max_order: int,
-        sample_rate: int = utils.SR,
+        sample_rate: int = 16000,
         target_length: int | None = None,
         target_directory: str = '',
         file_extension: str = 'flac',
 ):
+    """Generate set of multi-channel signals (target speech, reverb. speech, distractor speech, ambient noise, overall noise, noisy mixture) for a given acoustic scene configuration."""
     # Create multi-channel dry clean-speech signal.
     room = pra.ShoeBox(room_dim, fs=sample_rate, materials=pra.Material(1.0), max_order=0)
     room.add_source(mouth_pos, signal=stem_x, delay=0)
@@ -58,7 +59,7 @@ def generate_acoustic_mixture(
     initial_sir = power_x / power_d
     signal_d = np.sqrt((initial_sir / desired_sir)).item() * signal_d
     
-    # Create multi-channel reverberant distractor-speech signal.
+    # Create multi-channel reverberant ambient-noise signal.
     room = pra.ShoeBox(room_dim, fs=sample_rate, materials=pra.Material(e_absorption), max_order=max_order)
     for noise_pos_i in noise_pos:
         room.add_source(noise_pos_i, signal=stem_v, delay=0)
@@ -77,10 +78,10 @@ def generate_acoustic_mixture(
         signal_x = signal_x[:, :target_length]
         signal_r = signal_r[:, :target_length]
         signal_d = signal_d[:, :target_length]
-    # Speech signals likely to be shorter than noisy mixture: adjust for it.
-    signal_x = utils.pad_signal(signal_x, pad_right=signal_v.shape[1] - signal_x.shape[1])
-    signal_r = utils.pad_signal(signal_r, pad_right=signal_v.shape[1] - signal_r.shape[1])
-    signal_d = utils.pad_signal(signal_d, pad_right=signal_v.shape[1] - signal_d.shape[1])            
+    # Reverberant speech signals likely to be shorter than reverberant noise signal: adjust for it.
+    signal_x = utils.pad_signal_right(signal_x, pad_right=signal_v.shape[1] - signal_x.shape[1])
+    signal_r = utils.pad_signal_right(signal_r, pad_right=signal_v.shape[1] - signal_r.shape[1])
+    signal_d = utils.pad_signal_right(signal_d, pad_right=signal_v.shape[1] - signal_d.shape[1])            
 
     # Create multi-channel noisy mixture signal.
     signal_y = signal_r + signal_d + signal_v
@@ -95,6 +96,7 @@ def generate_acoustic_mixture(
     # Normalize signals w.r.t. maximum; save normalization coefficient.
     signal_max = np.abs(signal_y).max()
 
+    # Save signals.
     for signal, path in zip(
         [signal_x, signal_r, signal_d, signal_v, signal_n, signal_y], 
         [path_to_x, path_to_r, path_to_d, path_to_v, path_to_n, path_to_y]
@@ -105,7 +107,7 @@ def generate_acoustic_mixture(
     return signal_max
 
 
-def create_acoustic_scene(
+def create_random_acoustic_scene(
     path_to_stem_x: str,
     path_to_stem_d: list[str],
     path_to_stem_v: str,
@@ -113,7 +115,7 @@ def create_acoustic_scene(
     file_extension: str = 'flac',
     plot: bool = False,
 ):
-    
+    """Generate random acoustic scene parameters and corresponding multi-channel signals."""  
     room_dim = utils.random_room_dimensions()
     head_pos = utils.random_head_position(room_dim)
     head_yaw = utils.random_head_yaw()
@@ -130,12 +132,13 @@ def create_acoustic_scene(
     rt60 = utils.random_rt60(room_dim)
     e_absorption, max_order = pra.inverse_sabine(rt60, room_dim)
 
+    # Load stem signals.
     stem_v = torchaudio.load(path_to_stem_v, channels_first=True)[0].squeeze(0).numpy()
-    stem_x = utils.pad_and_adjust(
+    stem_x = utils.pad_signal_left_and_right(
         signal = torchaudio.load(path_to_stem_x, channels_first=True)[0].squeeze(0).numpy(),
         target_length = stem_v.shape[0],
     )
-    stem_d = [utils.pad_and_adjust(
+    stem_d = [utils.pad_signal_left_and_right(
         signal = torchaudio.load(p, channels_first=True)[0].squeeze(0).numpy(),
         target_length = stem_v.shape[0],
         ) for p in path_to_stem_d
@@ -210,7 +213,8 @@ def plot_room_layout(room_dim, mouth_pos, mics_pos, distr_pos, noise_pos, target
     plt.close()
 
 
-def parse_database(path_database, num_samples=None):
+def parse_database(path_database):
+    """Parse database directory and return list of tuples (path_to_sample, sample_length_in_seconds)."""
     list_samples = []
     for name_sample in os.listdir(path_database):
         path_sample = os.path.join(path_database, name_sample)
@@ -220,13 +224,15 @@ def parse_database(path_database, num_samples=None):
 
 if __name__ == '__main__':
     plt.switch_backend('agg')
-    subsets = ['tst', 'trn', 'val']
+
+    # Adjust root paths as needed.
     path_speech = r"/home/ovistetom/Documents/data/EARS/preprocessed"
     path_noise = r"/home/ovistetom/Documents/data/WHAM/preprocessed"
     path_output = r"/home/ovistetom/Documents/data/MIX-EARS-WHAM/reference"
     
-    for subset in subsets:
+    for subset in ['tst', 'trn', 'val']:
 
+        # Parse EARS and WHAM subsets.
         subset_speech = os.path.join(path_speech, subset)
         elements_speech = parse_database(subset_speech)
         subset_noise = os.path.join(path_noise, subset)
@@ -236,26 +242,32 @@ if __name__ == '__main__':
 
         num_sample = 0
 
+        # Parse every clean-speech sample in EARS.
         for path_sample_speech, len_sample_speech in tqdm.tqdm(elements_speech):
 
+            # Skip short clips.
             if len_sample_speech < 6:
                 continue
 
+            # Fetch 1 random noise sample at least 2 seconds longer than the running speech sample.
             path_sample_noise, len_sample_noise = random.sample(
                 population = [(p,l) for p,l in elements_noise if (l>len_sample_speech and l<len_sample_speech+2)], 
                 k = 1,
             )[0]
             
+            # Fetch 4 random distractor-speech samples shorter than the noise sample and uttered by a different speaker than the running speech sample.
             path_sample_distr = random.sample(
                 population = [p for p,l in elements_speech if (l<len_sample_noise and int(p[-12:-9])!=int(path_sample_speech[-12:-9]))], 
                 k = 4,
             )
 
+            # Create output directory for current sample.
             path_sample = os.path.join(subset_output, f"{num_sample:05d}")
             os.makedirs(path_sample, exist_ok=True)
 
+            # Generate acoustic mixture and corresponding metadata for current sample. Plot room layout for test set samples.
             plt.ioff()
-            create_acoustic_scene(
+            create_random_acoustic_scene(
                 path_to_stem_x=path_sample_speech,
                 path_to_stem_d=path_sample_distr,
                 path_to_stem_v=path_sample_noise,
