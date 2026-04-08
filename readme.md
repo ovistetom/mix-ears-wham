@@ -1,7 +1,9 @@
 ## Installation
-1) Create a `conda` environment;
+1) Create a `conda` environment.
 
-2) Install dependencies: `pip install numpy pandas torch librosa soundfile pyroomacoustics tqdm`.
+2) Install various dependencies: `pip install ipykernel numpy pandas matplotlib librosa soundfile pyroomacoustics tqdm`.
+
+3) Install PyTorch (check [the official docs](https://pytorch.org/get-started/locally)): `pip install torch torchaudio torchvision torchcodec`.
 
 ## Before Running
 Make sure you have at least __225 GB__ of free memory space.  
@@ -15,7 +17,7 @@ Make sure you have at least __225 GB__ of free memory space.
 2) Adjust root paths in `src/1-preprocessing/preprocess_ears.ipynb` and run.  
 The output directory should contain subsets `trn`, `tst` and `val`, each containing thousands of clean speech samples.
 
-3) Download the WHAM! dataset from [wham.ai](http://wham.ai)
+3) Download the WHAM! dataset from [wham.ai](http://wham.ai).
 
 4) Adjust root paths in `src/1-preprocessing/preprocess_wham.ipynb` and run.  
 The output directory should contain subsets `trn`, `tst` and `val`, each containing thousands of noise samples.

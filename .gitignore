@@ -1,2 +1,4 @@
 .conda
+.vscode
 old
+src/2-generation/__pycache__

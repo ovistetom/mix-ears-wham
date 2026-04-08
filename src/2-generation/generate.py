@@ -2,11 +2,11 @@ import os
 import tqdm
 import random
 import librosa
-import torch
-import torchaudio
 import numpy as np
-import matplotlib.pyplot as plt
+import soundfile as sf
 import pyroomacoustics as pra
+import matplotlib.pyplot as plt
+from matplotlib.markers import MarkerStyle
 import utils
 
 
@@ -102,7 +102,8 @@ def generate_acoustic_mixture(
         [path_to_x, path_to_r, path_to_d, path_to_v, path_to_n, path_to_y]
     ):
         signal /= signal_max
-        torchaudio.save(path, torch.tensor(signal), sample_rate, channels_first=True)
+        #torchaudio.save(path, torch.tensor(signal), sample_rate, channels_first=True)
+        sf.write(path, signal.T, sample_rate)
 
     return signal_max
 
@@ -125,21 +126,25 @@ def create_random_acoustic_scene(
     mouth_pos = utils.random_mouth_position(head_pos, head_yaw, head_pitch, head_roll)
     distr_pos = [utils.random_distractor_position(room_dim, head_pos) for _ in path_to_stem_d]
     noise_pos = utils.random_noise_source_position(room_dim, head_pos, num_sources=48)
-    desired_sir_db = utils.random_snr(0, 6)
+    desired_sir_db = utils.random_snr(-6, 6)
     desired_sir = 10**(0.1*desired_sir_db)
     desired_snr_db = utils.random_snr(-6, 6)
     desired_snr = 10**(0.1*desired_snr_db)
-    rt60 = utils.random_rt60(room_dim)
-    e_absorption, max_order = pra.inverse_sabine(rt60, room_dim)
+    rt60 = utils.random_rt60(room_dim, max_rt60=1.0)
+    e_absorption, _ = pra.inverse_sabine(rt60, room_dim)
+    max_order = random.randint(6, 12)
 
     # Load stem signals.
-    stem_v = torchaudio.load(path_to_stem_v, channels_first=True)[0].squeeze(0).numpy()
+    #stem_v = torchaudio.load(path_to_stem_v, channels_first=True)[0].squeeze(0).numpy()
+    stem_v = sf.read(path_to_stem_v, dtype='float32')[0]
     stem_x = utils.pad_signal_left_and_right(
-        signal = torchaudio.load(path_to_stem_x, channels_first=True)[0].squeeze(0).numpy(),
+        #signal = torchaudio.load(path_to_stem_x, channels_first=True)[0].squeeze(0).numpy(),
+        signal = sf.read(path_to_stem_x, dtype='float32')[0],
         target_length = stem_v.shape[0],
     )
     stem_d = [utils.pad_signal_left_and_right(
-        signal = torchaudio.load(p, channels_first=True)[0].squeeze(0).numpy(),
+        #signal = torchaudio.load(p, channels_first=True)[0].squeeze(0).numpy(),
+        signal = sf.read(p, dtype='float32')[0],
         target_length = stem_v.shape[0],
         ) for p in path_to_stem_d
     ]
@@ -156,7 +161,7 @@ def create_random_acoustic_scene(
         desired_sir=desired_sir,
         desired_snr=desired_snr,
         e_absorption=e_absorption,
-        max_order=6, #max_order,
+        max_order=max_order,
         target_length=stem_v.shape[0],
         target_directory=target_directory,
         file_extension=file_extension,
@@ -168,6 +173,7 @@ def create_random_acoustic_scene(
         desired_sir=desired_sir_db,
         desired_snr=desired_snr_db,
         rt60=rt60,
+        max_order=max_order,
         target_directory=target_directory,
     )
 
@@ -181,6 +187,7 @@ def write_metadata(
     desired_sir: float,
     desired_snr: float,
     rt60: float,
+    max_order: int,
     target_directory: str,
 ):
     with open(os.path.join(target_directory, 'metadata.txt'), 'w') as f:
@@ -189,18 +196,19 @@ def write_metadata(
         f.write(f"SIR_DB,{int(round(desired_sir, 0)):+}\n")
         f.write(f"SNR_DB,{int(round(desired_snr, 0)):+}\n")
         f.write(f"RT60,{round(rt60, 1)}\n")
+        f.write(f"MAX_ORDER,{max_order}\n")
 
 
 def plot_room_layout(room_dim, mouth_pos, mics_pos, distr_pos, noise_pos, target_directory=''):
     fig, axs = plt.subplots(1,1)
-    axs.scatter(mics_pos.T[0], mics_pos.T[1], c='b', marker='x', label='Microphones')
-    axs.scatter(mouth_pos[0], mouth_pos[1], c='r', marker='o', label='Target Speaker Source')
+    axs.scatter(mics_pos.T[0], mics_pos.T[1], c='b', marker=MarkerStyle('x'), label='Microphones')
+    axs.scatter(mouth_pos[0], mouth_pos[1], c='r', marker=MarkerStyle('o'), label='Target Speaker Source')
     for distr_pos_i in distr_pos:
-        axs.scatter(distr_pos_i[0], distr_pos_i[1], c='g', marker='o')
-    axs.scatter(distr_pos[0][0], distr_pos[0][1], c='g', marker='o', label='Interf. Speaker Sources')
+        axs.scatter(distr_pos_i[0], distr_pos_i[1], c='g', marker=MarkerStyle('o'))
+    axs.scatter(distr_pos[0][0], distr_pos[0][1], c='g', marker=MarkerStyle('o'), label='Interf. Speaker Sources')
     for noise_pos_i in noise_pos:
-        axs.scatter(noise_pos_i[0], noise_pos_i[1], c='y', marker='.')
-    axs.scatter(noise_pos[0][0], noise_pos[0][1], c='y', marker='.', label='Ambient Noise Sources')
+        axs.scatter(noise_pos_i[0], noise_pos_i[1], c='y', marker=MarkerStyle('.'))
+    axs.scatter(noise_pos[0][0], noise_pos[0][1], c='y', marker=MarkerStyle('.'), label='Ambient Noise Sources')
     axs.set_xlim(0, room_dim[0])
     axs.set_xticks([i for i in range(0, room_dim[0]+1)])
     axs.set_ylim(0, room_dim[1])
