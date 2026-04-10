@@ -17,7 +17,7 @@ Make sure you have at least __225 GB__ of free memory space.
 2) Adjust root paths in `src/1-preprocessing/preprocess_ears.ipynb` and run.  
 The output directory should contain subsets `trn`, `tst` and `val`, each containing thousands of clean speech samples.
 
-3) Download the WHAM! dataset from [wham.ai](http://wham.ai).
+3) Download the WHAM! dataset from [http://wham.whisper.ai/](http://wham.whisper.ai/).
 
 4) Adjust root paths in `src/1-preprocessing/preprocess_wham.ipynb` and run.  
 The output directory should contain subsets `trn`, `tst` and `val`, each containing thousands of noise samples.
