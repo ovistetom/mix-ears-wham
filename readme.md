@@ -6,7 +6,7 @@
 3) Install PyTorch (check [the official docs](https://pytorch.org/get-started/locally)): `pip install torch torchaudio torchvision torchcodec`.
 
 ## Before Running
-Make sure you have at least __225 GB__ of free memory space.  
+Make sure you have at least __325 GB__ of free memory space.  
 - The EARS dataset (raw + preprocessed) takes up approx. 75 GB.
 - So does the WHAM! dataset (raw + preprocessed).
 - The resulting MIX-EARS-WHAM database takes up approx. 175 GB.
