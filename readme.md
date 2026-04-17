@@ -1,7 +1,7 @@
 ## Installation
 1) Create a `conda` environment.
 
-2) Install various dependencies: `pip install ipykernel numpy pandas matplotlib librosa soundfile pyroomacoustics tqdm`.
+2) Install various dependencies: `pip install jupyter ipykernel ipywidgets numpy pandas matplotlib librosa soundfile pyroomacoustics tqdm`.
 
 3) Install PyTorch (check [the official docs](https://pytorch.org/get-started/locally)): `pip install torch torchaudio torchvision torchcodec`.
 

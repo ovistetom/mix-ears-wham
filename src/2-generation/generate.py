@@ -126,9 +126,9 @@ def create_random_acoustic_scene(
     mouth_pos = utils.random_mouth_position(head_pos, head_yaw, head_pitch, head_roll)
     distr_pos = [utils.random_distractor_position(room_dim, head_pos) for _ in path_to_stem_d]
     noise_pos = utils.random_noise_source_position(room_dim, head_pos, num_sources=48)
-    desired_sir_db = utils.random_snr(-10, 10)
+    desired_sir_db = utils.random_snr(-5, 5)
     desired_sir = 10**(0.1*desired_sir_db)
-    desired_snr_db = utils.random_snr(-5, 5)
+    desired_snr_db = utils.random_snr(-10, 10)
     desired_snr = 10**(0.1*desired_snr_db)
     rt60 = utils.random_rt60(room_dim, max_rt60=1.0)
     e_absorption, _ = pra.inverse_sabine(rt60, room_dim)
