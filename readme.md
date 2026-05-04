@@ -9,7 +9,7 @@
 Make sure you have at least __325 GB__ of free memory space.  
 - The EARS dataset (raw + preprocessed) takes up approx. 75 GB.
 - So does the WHAM! dataset (raw + preprocessed).
-- The resulting MIX-EARS-WHAM database takes up approx. 175 GB.
+- The resulting MC-MIX-EARS-WHAM database takes up approx. 175 GB.
 
 ## How to Use
 1) Download the EARS dataset using [github.com/facebookresearch/ears_dataset](https://github.com/facebookresearch/ears_dataset).
