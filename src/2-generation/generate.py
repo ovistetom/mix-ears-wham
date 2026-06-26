@@ -1,5 +1,6 @@
 import os
 import tqdm
+import json
 import random
 import librosa
 import numpy as np
@@ -26,7 +27,7 @@ def generate_acoustic_mixture(
         sample_rate: int = 16000,
         target_length: int | None = None,
         target_directory: str = '',
-        file_extension: str = 'flac',
+        file_ext: str = 'flac',
 ):
     """Generate set of multi-channel signals (target speech, reverb. speech, distractor speech, ambient noise, overall noise, noisy mixture) for a given acoustic scene configuration."""
     # Create multi-channel dry clean-speech signal.
@@ -35,8 +36,8 @@ def generate_acoustic_mixture(
     room.add_microphone_array(mics_pos.T)
     room.simulate()
     signal_x = room.mic_array.signals if room.mic_array is not None else np.array([])
-    power_x = np.pow(signal_x, 2.0).sum()
-    path_to_x = os.path.join(target_directory, f'target_speech.{file_extension}')
+    power_x = np.pow(signal_x, 2).sum()
+    path_to_x = os.path.join(target_directory, f'target_speech.{file_ext}')
     
     # Create multi-channel reverberant clean-speech signal.
     room = pra.ShoeBox(room_dim, fs=sample_rate, materials=pra.Material(e_absorption), max_order=max_order)
@@ -44,7 +45,7 @@ def generate_acoustic_mixture(
     room.add_microphone_array(mics_pos.T)
     room.simulate()
     signal_r = room.mic_array.signals if room.mic_array is not None else np.array([])
-    power_r = np.pow(signal_r, 2.0).sum()
+    power_r = np.pow(signal_r, 2).sum()
 
     # Create multi-channel reverberant distractor-speech signal.
     room = pra.ShoeBox(room_dim, fs=sample_rate, materials=pra.Material(e_absorption), max_order=max_order)
@@ -53,8 +54,8 @@ def generate_acoustic_mixture(
     room.add_microphone_array(mics_pos.T)
     room.simulate()
     signal_d = room.mic_array.signals if room.mic_array is not None else np.array([])
-    power_d = np.pow(signal_d, 2.0).sum()
-    path_to_d = os.path.join(target_directory, f'interf_speech.{file_extension}')
+    power_d = np.pow(signal_d, 2).sum()
+    path_to_d = os.path.join(target_directory, f'interf_speech.{file_ext}')
     # Determine SIR.
     initial_sir = power_x / power_d
     signal_d = np.sqrt((initial_sir / desired_sir)).item() * signal_d
@@ -66,11 +67,11 @@ def generate_acoustic_mixture(
     room.add_microphone_array(mics_pos.T)
     room.simulate()
     signal_v = room.mic_array.signals if room.mic_array is not None else np.array([])
-    power_v = np.pow(signal_v, 2.0).sum()
+    power_v = np.pow(signal_v, 2).sum()
     # Determine SNR.
     initial_snr = power_x / power_v
     signal_v = np.sqrt((initial_snr / desired_snr)).item() * signal_v
-    path_to_v = os.path.join(target_directory, f'ambient_noise.{file_extension}')
+    path_to_v = os.path.join(target_directory, f'ambient_noise.{file_ext}')
     
     # Set target length.
     if target_length is not None:
@@ -85,16 +86,16 @@ def generate_acoustic_mixture(
 
     # Create multi-channel noisy mixture signal.
     signal_y = signal_r + signal_d + signal_v
-    path_to_y = os.path.join(target_directory, f'noisy_mixture.{file_extension}')
+    path_to_y = os.path.join(target_directory, f'noisy_mixture.{file_ext}')
     # Define reverb-only signal.
     signal_r = signal_r - signal_x
-    path_to_r = os.path.join(target_directory, f'reverb_speech.{file_extension}')
+    path_to_r = os.path.join(target_directory, f'reverb_speech.{file_ext}')
     # Define overall-noise signal.
     signal_n = signal_r + signal_d + signal_v
-    path_to_n = os.path.join(target_directory, f'overall_noise.{file_extension}')
+    path_to_n = os.path.join(target_directory, f'overall_noise.{file_ext}')
 
-    # Normalize signals w.r.t. maximum; save normalization coefficient.
-    signal_max = np.abs(signal_y).max()
+    # Normalize signals w.r.t. maximum; save normalization coefficient; multiplication by 2 to cap at 0.5.
+    signal_max = 2*np.abs(signal_y).max()
 
     # Save signals.
     for signal, path in zip(
@@ -113,7 +114,7 @@ def create_random_acoustic_scene(
     path_to_stem_d: list[str],
     path_to_stem_v: str,
     target_directory: str,
-    file_extension: str = 'flac',
+    file_ext: str = 'flac',
     plot: bool = False,
 ):
     """Generate random acoustic scene parameters and corresponding multi-channel signals."""  
@@ -164,7 +165,7 @@ def create_random_acoustic_scene(
         max_order=max_order,
         target_length=stem_v.shape[0],
         target_directory=target_directory,
-        file_extension=file_extension,
+        file_ext=file_ext,
     )
 
     write_metadata(
@@ -190,13 +191,19 @@ def write_metadata(
     max_order: int,
     target_directory: str,
 ):
-    with open(os.path.join(target_directory, 'metadata.txt'), 'w') as f:
-        f.write(f"SPEAKER_ID,{os.path.basename(path_to_stem_x)[:4].upper()}\n")
-        f.write(f"NOISE_ID,{os.path.splitext(os.path.basename(path_to_stem_v))[0]}\n")
-        f.write(f"SIR_DB,{int(round(desired_sir, 0)):+}\n")
-        f.write(f"SNR_DB,{int(round(desired_snr, 0)):+}\n")
-        f.write(f"RT60,{round(rt60, 1)}\n")
-        f.write(f"MAX_ORDER,{max_order}\n")
+    with open(os.path.join(target_directory, 'metadata.json'), 'w') as f:
+        json.dump(
+            {
+                "SPEAKER_ID": os.path.basename(path_to_stem_x)[:4].lower(),
+                "NOISE_ID": os.path.splitext(os.path.basename(path_to_stem_v))[0],
+                "SIR_DB": int(round(desired_sir, 0)),
+                "SNR_DB": int(round(desired_snr, 0)),
+                "RT60": round(rt60, 1),
+                "MAX_ORDER": max_order,
+            },
+            f,
+            indent=4,
+        )
 
 
 def plot_room_layout(room_dim, mouth_pos, mics_pos, distr_pos, noise_pos, target_directory=''):
